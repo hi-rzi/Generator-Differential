@@ -305,7 +305,7 @@ st.caption("Active Phase Vector Analysis, GE G60 Dual-Breakpoint Curve Engine & 
 st.markdown("### 🎛️ Generator Relay Type Select")
 mode_selection = st.radio(
     "Choose Relay Implementation:",
-    ["Generator Winding (87G) - GE G60 (Digital/Numerical)", "Generator Winding (87G) - Legacy Fixed-% (GE CFD22B4A)"],
+    ["GE G60", "GE CFD22B4A"],
     horizontal=True
 )
 
