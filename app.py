@@ -329,8 +329,7 @@ PRESETS = {
         #   Pickup: 0.050-1.00 pu (step 0.01) | Slope1/Slope2: 1-100% (step 1)
         #   Break1: 1.00-1.50 pu (step 0.01) | Break2: 1.50-30.00 pu (step 0.01)
         #   Operate time: <3/4 cycle when I_diff > 5x Pickup (speed spec, not modeled numerically)
-        "Gen Unit 7 - 846 MVA (G60, confirmed)": {"mva": 846.231, "kv": 23.0, "ct_n": 24000, "ct_t": 24000, "pickup": 0.06, "s1": 20, "break_1": 1.15, "s2": 80, "break_2": 8.00},
-        "Gen Unit 8 - 846 MVA (G60, confirmed)": {"mva": 846.231, "kv": 23.0, "ct_n": 24000, "ct_t": 24000, "pickup": 0.06, "s1": 20, "break_1": 1.15, "s2": 80, "break_2": 8.00}
+        "POMI Unit 7 & 8 - 846 MVA": {"mva": 846.231, "kv": 23.0, "ct_n": 24000, "ct_t": 24000, "pickup": 0.06, "s1": 20, "break_1": 1.15, "s2": 80, "break_2": 8.00}
     },
     "GENERATOR_LEGACY": {
         # Real Paiton Units 7 & 8 generator differential data, from setting sheet
@@ -345,8 +344,7 @@ PRESETS = {
         # saturates, which INCREASES the effective margin beyond the flat 10% line (see
         # Figure 7) — that extra margin is not modeled here since it's shown only as a curve,
         # not a formula, in the manual.
-        "Paiton Unit 7 - CFD22B4A (846 MVA)": {"mva": 846.231, "kv": 23.0, "ct_n": 24000, "ct_t": 24000, "target_amps": 0.2, "s1": 10},
-        "Paiton Unit 8 - CFD22B4A (846 MVA)": {"mva": 846.231, "kv": 23.0, "ct_n": 24000, "ct_t": 24000, "target_amps": 0.2, "s1": 10}
+        "POMI Unit 7 - 846 MVA": {"mva": 846.231, "kv": 23.0, "ct_n": 24000, "ct_t": 24000, "target_amps": 0.2, "s1": 10}
     }
 }
 
@@ -677,8 +675,8 @@ with tab2:
                  "(same base used everywhere else in this app) before it's stored."
         )
         tc1, tc2, tc3, tc4 = st.columns([1, 1, 1, 1.4])
-        restraint_label = "Restraint Current (A)" if tp_unit.startswith("Secondary") else "Restraint Current (pu)"
-        diff_label = "Measured Diff. Current (A)" if tp_unit.startswith("Secondary") else "Measured Diff. Current (pu)"
+        restraint_label = "Restraint Current" if tp_unit.startswith("Secondary") else "Restraint Current (pu)"
+        diff_label = "Measured Diff. Current" if tp_unit.startswith("Secondary") else "Measured Diff. Current (pu)"
         restraint_step = 0.1 if tp_unit.startswith("Secondary") else 0.05
         diff_step = 0.05 if tp_unit.startswith("Secondary") else 0.01
         restraint_default = 1.0 if tp_unit.startswith("Secondary") else 0.3
