@@ -757,20 +757,54 @@ with tab2:
     use_amps_comm = comm_chart_units == "Secondary Amps (A)"
     unit_label_comm = "A" if use_amps_comm else "pu"
 
-    manual_restraints_pu = [tp["Restraint (A)"] / amps_base for tp in st.session_state.manual_test_points]
-    all_restraints_pu = [pt["i_rest_pu"] for pt in phase_test_points.values()] + manual_restraints_pu
-    max_restraint = max(all_restraints_pu) if all_restraints_pu else 6.0
-
-    curve_x_pu = np.linspace(0, max_restraint * 1.2 + 0.5, 300)
-    curve_y_pu = [relay.calculate_trip_threshold(x) for x in curve_x_pu]
-    curve_x = curve_x_pu * amps_base if use_amps_comm else curve_x_pu
-    curve_y = np.array(curve_y_pu) * amps_base if use_amps_comm else np.array(curve_y_pu)
+    # -------------------------------------------------------------
+    # CAL. LINE SOURCE — like a real commissioning test report (e.g. the sample image),
+    # the "CAL." line there is not the theoretical relay formula plotted as a smooth curve —
+    # it's a straight-line connection THROUGH the actual test points, in restraint-current
+    # order. Offer both: connect-the-dots through entered test points (matches the report
+    # format), or the theoretical relay characteristic (useful before you have test data).
+    # -------------------------------------------------------------
+    cal_source = st.radio(
+        "CAL. line source",
+        ["Connect my test points (commissioning report style)", "Theoretical relay characteristic"],
+        horizontal=True,
+        key="cal_line_source",
+        help="'Connect my test points' draws a straight line through your entered test points "
+             "sorted by restraint current, exactly like the CAL. line in a commissioning test "
+             "report. 'Theoretical' plots the smooth curve from the relay's Pickup/Slope/Break "
+             "settings instead."
+    )
 
     sweep_fig = go.Figure()
-    sweep_fig.add_trace(go.Scatter(
-        x=curve_x, y=curve_y, mode="lines", name="CAL.",
-        line=dict(color="#2E8B57", width=3)
-    ))
+
+    if cal_source.startswith("Connect") and len(st.session_state.manual_test_points) >= 2:
+        # Sort the actual entered test points by restraint current and draw a straight
+        # line through them in order — this is what a real CAL. line in a test report is.
+        sorted_pts = sorted(st.session_state.manual_test_points, key=lambda tp: tp["Restraint (A)"])
+        cal_x_amps = [tp["Restraint (A)"] for tp in sorted_pts]
+        cal_y_amps = [tp["Measured Diff (A)"] for tp in sorted_pts]
+        curve_x = cal_x_amps if use_amps_comm else [x / amps_base for x in cal_x_amps]
+        curve_y = cal_y_amps if use_amps_comm else [y / amps_base for y in cal_y_amps]
+        sweep_fig.add_trace(go.Scatter(
+            x=curve_x, y=curve_y, mode="lines", name="CAL.",
+            line=dict(color="#2E8B57", width=3)
+        ))
+    else:
+        if cal_source.startswith("Connect"):
+            st.info("Add at least 2 test points above to draw the CAL. line through them — showing the theoretical characteristic for now.")
+        manual_restraints_pu = [tp["Restraint (A)"] / amps_base for tp in st.session_state.manual_test_points]
+        all_restraints_pu = [pt["i_rest_pu"] for pt in phase_test_points.values()] + manual_restraints_pu
+        max_restraint = max(all_restraints_pu) if all_restraints_pu else 6.0
+
+        curve_x_pu = np.linspace(0, max_restraint * 1.2 + 0.5, 300)
+        curve_y_pu = [relay.calculate_trip_threshold(x) for x in curve_x_pu]
+        curve_x = curve_x_pu * amps_base if use_amps_comm else curve_x_pu
+        curve_y = np.array(curve_y_pu) * amps_base if use_amps_comm else np.array(curve_y_pu)
+
+        sweep_fig.add_trace(go.Scatter(
+            x=curve_x, y=curve_y, mode="lines", name="CAL.",
+            line=dict(color="#2E8B57", width=3)
+        ))
 
     tp_marker_colors = {"Phase A": "#D63384", "Phase B": "#6C757D", "Phase C": "#1E3A8A", "Other": "#F59E0B"}
     tp_marker_symbols = {"Phase A": "square", "Phase B": "triangle-up", "Phase C": "square", "Other": "diamond"}
