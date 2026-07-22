@@ -377,7 +377,23 @@ col_conv, col_pol = st.sidebar.columns(2)
 with col_conv:
     convention = st.radio("Restraint Standard", ["IEEE", "IEC"], help="IEEE: Average current. IEC: Arithmetic sum.")
 with col_pol:
-    ct_polarity = st.radio("Polarity Reference", ["OPPOSITE", "SAME"], index=1, help="OPPOSITE: standard facing inwards. SAME: facing identical directions.")
+    def _on_polarity_change():
+        # Keep each phase's Terminal Side angle box in sync with the newly selected
+        # polarity, instead of leaving it at whatever value was set under the
+        # previously selected polarity — otherwise switching this radio silently
+        # pairs stale angle values with a different vec_op formula (+ vs -), which
+        # looks like the SAME/OPPOSITE results have "swapped".
+        new_polarity = st.session_state["ct_polarity_widget"]
+        for _idx, _phase in enumerate(["Phase A", "Phase B", "Phase C"]):
+            _def_ang_N = -120.0 * _idx
+            _def_ang_T = _def_ang_N + 180.0 if new_polarity == "OPPOSITE" else _def_ang_N
+            st.session_state[f"T_a_{_phase}"] = _def_ang_T
+
+    ct_polarity = st.radio(
+        "Polarity Reference", ["OPPOSITE", "SAME"], index=1,
+        key="ct_polarity_widget", on_change=_on_polarity_change,
+        help="OPPOSITE: standard facing inwards. SAME: facing identical directions."
+    )
 
 relay = AdvancedDifferentialRelay(
     mode=current_mode, mva_rated=mva, kv_rated=kv,
