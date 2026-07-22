@@ -256,7 +256,7 @@ PRESETS = {
         "POMI Unit 7 & 8 - 846 MVA": {"mva": 846.231, "kv": 23.0, "ct_n": 24000, "ct_t": 24000, "pickup": 0.06, "s1": 20, "break_1": 1.15, "s2": 80, "break_2": 8.00}
     },
     "GENERATOR_LEGACY": {
-        "POMI Unit 7 & 8 - 846 MVA": {"mva": 846.231, "kv": 23.0, "ct_n": 24000, "ct_t": 24000, "target_amps": 0.2, "s1": 10}
+        "POMI Unit 7 - 846 MVA": {"mva": 846.231, "kv": 23.0, "ct_n": 24000, "ct_t": 24000, "target_amps": 0.2, "s1": 10}
     }
 }
 
@@ -355,7 +355,7 @@ col_conv, col_pol = st.sidebar.columns(2)
 with col_conv:
     convention = st.radio("Restraint Standard", ["IEEE", "IEC"], help="IEEE: Average current. IEC: Arithmetic sum.")
 with col_pol:
-    ct_polarity = st.radio("Polarity Reference", ["OPPOSITE", "SAME"], help="OPPOSITE: standard facing inwards. SAME: facing identical directions.")
+    ct_polarity = st.radio("Polarity Reference", ["OPPOSITE", "SAME"], index=1, help="OPPOSITE: standard facing inwards. SAME: facing identical directions.")
 
 relay = AdvancedDifferentialRelay(
     mode=current_mode, mva_rated=mva, kv_rated=kv,
