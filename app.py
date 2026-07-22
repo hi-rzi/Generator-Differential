@@ -381,11 +381,6 @@ target_amps = None
 i_unrestrained_value = None
 
 if current_mode == "GENERATOR_LEGACY":
-    st.sidebar.caption(
-        "ℹ️ Per GEK-34124E: this relay (GE CFD22A/B, e.g. CFD22B4A) has only ONE field "
-        "setting — the pickup. Everything else is fixed by the relay's internal "
-        "product-restraint design, not adjustable on site."
-    )
     target_amps = slider_with_exact_input(
         st.sidebar, "Target / Seal-in Pickup (Secondary Amps)", 0.1, 1.0, p_data["target_amps"], 0.05,
         key=f"{current_mode}__{selected_preset}__target_amps",
@@ -407,12 +402,6 @@ if current_mode == "GENERATOR_LEGACY":
     break_1, break_2 = 1e6, 1e6  # unused in legacy formula
 
 else:  # GENERATOR - GE G60, ranges/steps per instruction manual
-    st.sidebar.success(
-        "✅ Pickup, Slope 1/2, and Break 1/2 below are confirmed from the actual G60 setting "
-        "sheet, Section 3.2 [87G] Generator Differential. CT ratio confirmed from the plant "
-        "single-line diagram. No separate unrestrained/high-set element was listed on that "
-        "sheet, so it stays disabled below unless you confirm otherwise."
-    )
     i_pickup = slider_with_exact_input(
         st.sidebar, "Pickup (pu)", 0.05, 1.00, p_data["pickup"], 0.01,
         key=f"{current_mode}__{selected_preset}__pickup",
@@ -439,12 +428,6 @@ else:  # GENERATOR - GE G60, ranges/steps per instruction manual
         help_text="G60 manual range: 1.50 to 30.00 pu, step 0.01. Slope 2 applies above this point."
     )
 
-    st.sidebar.caption(
-        "ℹ️ Per G60 manual: operate time is **<¾ cycle when I_diff > 5× Pickup**. This is a "
-        "relay *speed* specification, not a separate trip threshold, so it isn't modeled "
-        "numerically here."
-    )
-
     enable_unrestrained = st.sidebar.checkbox(
         "Enable Unrestrained High-Set Element",
         value=False,
@@ -458,18 +441,6 @@ else:  # GENERATOR - GE G60, ranges/steps per instruction manual
         )
 
 st.sidebar.header("3. Wiring & Convention")
-if current_mode == "GENERATOR_LEGACY":
-    st.sidebar.caption(
-        "ℹ️ This relay has no harmonic restraint capability. It's also a **product-restraint** "
-        "type (GEK-34124E) that always balances against the smaller of the two terminal "
-        "currents — the IEEE/IEC toggle below doesn't apply to it and is ignored in this mode."
-    )
-else:
-    st.sidebar.caption(
-        "ℹ️ 2nd/5th harmonic blocking is not applicable to generators — "
-        "generators don't produce magnetizing inrush the way transformer "
-        "cores do, so this element isn't modeled here."
-    )
 
 col_conv, col_pol = st.sidebar.columns(2)
 with col_conv:
