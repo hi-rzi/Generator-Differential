@@ -792,9 +792,15 @@ with tab2:
     else:
         if cal_source.startswith("Connect"):
             st.info("Add at least 2 test points above to draw the CAL. line through them — showing the theoretical characteristic for now.")
+        # NOTE: the x-axis range here is intentionally independent of the Boundary
+        # Injection Calculator's sliders above (phase_test_points) — those sliders are
+        # a "what should I inject to test this one point" tool, not a chart zoom control,
+        # so they must not stretch or shrink this curve's plotted range. Instead, the range
+        # is based only on your actual entered test points, plus a sensible default reach
+        # (past Break 2 for the G60 curve, or a fixed default for the legacy relay).
         manual_restraints_pu = [tp["Restraint (A)"] / amps_base for tp in st.session_state.manual_test_points]
-        all_restraints_pu = [pt["i_rest_pu"] for pt in phase_test_points.values()] + manual_restraints_pu
-        max_restraint = max(all_restraints_pu) if all_restraints_pu else 6.0
+        default_reach = (relay.break_2 + 2.0) if current_mode == "GENERATOR" else 6.0
+        max_restraint = max(manual_restraints_pu + [default_reach]) if manual_restraints_pu else default_reach
 
         curve_x_pu = np.linspace(0, max_restraint * 1.2 + 0.5, 300)
         curve_y_pu = [relay.calculate_trip_threshold(x) for x in curve_x_pu]
