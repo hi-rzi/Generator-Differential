@@ -367,7 +367,7 @@ relay = AdvancedDifferentialRelay(
     target_amps=target_amps
 )
 
-tab1, tab2 = st.tabs(["📊 Live Vector Simulation", "🧰 Commissioning & Injection Tool"])
+tab1, tab2, tab3 = st.tabs(["📊 Live Vector Simulation", "🧰 Commissioning & Injection Tool", "🧪 Test Point Verification & Curve"])
 
 
 with tab1:
@@ -542,6 +542,54 @@ with tab2:
             st.caption(f"{t_inj_label} inject: **{sec_T:.3f} A**")
 
     st.markdown("---")
+    st.subheader("🔁 Auto-Sweep Full Curve Test Table")
+    st.write(
+        "Generates a full table of boundary test points across the restraint range in one go, "
+        "instead of testing one point at a time — useful for a complete commissioning verification."
+    )
+
+    sw1, sw2, sw3 = st.columns(3)
+    with sw1:
+        sweep_start = st.number_input("Sweep Start (pu)", value=0.2, min_value=0.0, step=0.1)
+    with sw2:
+        if current_mode == "GENERATOR":
+            default_end = float(relay.break_2) + 2.0
+        else:
+            default_end = float(relay.i_unrestrained) if relay.i_unrestrained < 1e5 else 6.0
+        sweep_end = st.number_input("Sweep End (pu)", value=max(6.0, default_end), step=0.5)
+    with sw3:
+        sweep_step = st.number_input("Sweep Step (pu)", value=0.5, min_value=0.1, step=0.1)
+
+    if st.button("▶️ Generate Sweep Table"):
+        if sweep_end <= sweep_start or sweep_step <= 0:
+            st.error("Sweep End must be greater than Sweep Start, and Sweep Step must be positive.")
+        else:
+            sweep_points = np.arange(sweep_start, sweep_end + sweep_step / 2.0, sweep_step)
+            sweep_rows = []
+            for i_rest in sweep_points:
+                boundary_op = relay.calculate_trip_threshold(i_rest)
+                sec_n = (i_rest + boundary_op / 2.0) * relay.i_rated_sec_N
+                sec_t = (i_rest - boundary_op / 2.0) * relay.i_rated_sec_T
+                sweep_rows.append({
+                    "I_rest (pu)": round(float(i_rest), 3),
+                    "Boundary I_op (pu)": round(boundary_op, 3),
+                    "Neutral Injection I_N (A)": round(sec_n, 3),
+                    "Terminal Injection I_T (A)": round(sec_t, 3),
+                })
+            st.session_state["sweep_df"] = pd.DataFrame(sweep_rows)
+
+    if "sweep_df" in st.session_state:
+        st.dataframe(st.session_state["sweep_df"], use_container_width=True)
+        csv_sweep = st.session_state["sweep_df"].to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label="⬇️ Download Sweep Table as CSV",
+            data=csv_sweep,
+            file_name=f"87G_Sweep_Test_Table_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+            mime="text/csv"
+        )
+
+
+with tab3:
     st.markdown("### 🧪 Test Point Verification & Curve")
     st.caption(
         "Enter measured test results and see them plotted against the calculated "
@@ -725,51 +773,4 @@ with tab2:
             "📷 To save this chart as an image: hover over the top-right of the chart and "
             "click the camera icon — it downloads a PNG directly from your browser, no extra "
             "software needed."
-        )
-
-    st.markdown("---")
-    st.subheader("🔁 Auto-Sweep Full Curve Test Table")
-    st.write(
-        "Generates a full table of boundary test points across the restraint range in one go, "
-        "instead of testing one point at a time — useful for a complete commissioning verification."
-    )
-
-    sw1, sw2, sw3 = st.columns(3)
-    with sw1:
-        sweep_start = st.number_input("Sweep Start (pu)", value=0.2, min_value=0.0, step=0.1)
-    with sw2:
-        if current_mode == "GENERATOR":
-            default_end = float(relay.break_2) + 2.0
-        else:
-            default_end = float(relay.i_unrestrained) if relay.i_unrestrained < 1e5 else 6.0
-        sweep_end = st.number_input("Sweep End (pu)", value=max(6.0, default_end), step=0.5)
-    with sw3:
-        sweep_step = st.number_input("Sweep Step (pu)", value=0.5, min_value=0.1, step=0.1)
-
-    if st.button("▶️ Generate Sweep Table"):
-        if sweep_end <= sweep_start or sweep_step <= 0:
-            st.error("Sweep End must be greater than Sweep Start, and Sweep Step must be positive.")
-        else:
-            sweep_points = np.arange(sweep_start, sweep_end + sweep_step / 2.0, sweep_step)
-            sweep_rows = []
-            for i_rest in sweep_points:
-                boundary_op = relay.calculate_trip_threshold(i_rest)
-                sec_n = (i_rest + boundary_op / 2.0) * relay.i_rated_sec_N
-                sec_t = (i_rest - boundary_op / 2.0) * relay.i_rated_sec_T
-                sweep_rows.append({
-                    "I_rest (pu)": round(float(i_rest), 3),
-                    "Boundary I_op (pu)": round(boundary_op, 3),
-                    "Neutral Injection I_N (A)": round(sec_n, 3),
-                    "Terminal Injection I_T (A)": round(sec_t, 3),
-                })
-            st.session_state["sweep_df"] = pd.DataFrame(sweep_rows)
-
-    if "sweep_df" in st.session_state:
-        st.dataframe(st.session_state["sweep_df"], use_container_width=True)
-        csv_sweep = st.session_state["sweep_df"].to_csv(index=False).encode("utf-8")
-        st.download_button(
-            label="⬇️ Download Sweep Table as CSV",
-            data=csv_sweep,
-            file_name=f"87G_Sweep_Test_Table_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-            mime="text/csv"
         )
