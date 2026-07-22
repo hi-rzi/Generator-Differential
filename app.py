@@ -738,7 +738,27 @@ with tab2:
             })
 
     if st.session_state.manual_test_points:
-        tp_df = pd.DataFrame(st.session_state.manual_test_points)
+        table_unit = st.radio(
+            "Display units for table", ["Secondary Amps (A)", "Per-Unit (pu)"], horizontal=True,
+            key="tp_table_unit",
+            help="Points are always stored consistently in Secondary Amps internally, but you "
+                 "can view this table in whichever unit you prefer — the values convert either way."
+        )
+        table_in_pu = table_unit.startswith("Per-Unit")
+        restraint_col = "Restraint (pu)" if table_in_pu else "Restraint (A)"
+        diff_col = "Measured Diff (pu)" if table_in_pu else "Measured Diff (A)"
+
+        tp_display_rows = []
+        for tp in st.session_state.manual_test_points:
+            r_amps = tp["Restraint (A)"]
+            d_amps = tp["Measured Diff (A)"]
+            tp_display_rows.append({
+                "Phase": tp["Phase"],
+                restraint_col: round(r_amps / amps_base, 3) if table_in_pu else round(r_amps, 3),
+                diff_col: round(d_amps / amps_base, 3) if table_in_pu else round(d_amps, 3),
+                "Label": tp["Label"]
+            })
+        tp_df = pd.DataFrame(tp_display_rows)
         st.dataframe(tp_df, use_container_width=True)
 
         rc1, rc2 = st.columns(2)
