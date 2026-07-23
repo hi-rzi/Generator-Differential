@@ -1,4 +1,6 @@
 import datetime
+import hashlib
+import json
 
 import numpy as np
 import pandas as pd
@@ -44,34 +46,107 @@ PRESETS = {
     }
 }
 
+MOTOR_CONFIG_FIELDS = (
+    "motor_selected_preset", "motor_fla", "motor_lrc_100", "motor_lrc_80",
+    "motor_accel_time_100", "motor_accel_time_80", "motor_safe_stall_100",
+    "motor_safe_stall_80", "motor_ct_ratio", "motor_ct_sec", "motor_tap_51",
+    "motor_time_dial", "motor_pickup_50a", "motor_dropout_50b",
+    "motor_target_seal_in", "motor_enable_backup", "motor_backup_ct_ratio",
+    "motor_backup_pickup_50", "motor_source_document", "motor_revision",
+    "motor_prepared_by", "motor_reviewed_by", "motor_approval_status", "motor_review_note",
+)
+
+
+def ensure_setting(key, default):
+    """Set a default without overwriting a saved or user-entered value."""
+    if key not in st.session_state:
+        st.session_state[key] = default
+
+
+def restore_motor_settings(uploaded_file):
+    """Restore only known ID Fan settings from a user-exported JSON file."""
+    file_bytes = uploaded_file.getvalue()
+    file_hash = hashlib.sha256(file_bytes).hexdigest()
+    if st.session_state.get("motor_loaded_file_hash") == file_hash:
+        return
+
+    try:
+        payload = json.loads(file_bytes.decode("utf-8"))
+        if payload.get("equipment") != "id_fan_motor":
+            raise ValueError("This is not an ID Fan Motor settings file.")
+        settings = payload.get("settings")
+        if not isinstance(settings, dict):
+            raise ValueError("The file does not contain a settings section.")
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        st.sidebar.error(f"Could not load settings file: {exc}")
+        st.session_state["motor_loaded_file_hash"] = file_hash
+        return
+
+    selected_preset = settings.get("motor_selected_preset")
+    if selected_preset is not None and selected_preset not in PRESETS:
+        st.sidebar.error("The saved preset is not available in this version of the app.")
+        st.session_state["motor_loaded_file_hash"] = file_hash
+        return
+
+    for key in MOTOR_CONFIG_FIELDS:
+        if key in settings:
+            st.session_state[key] = settings[key]
+
+    for key in ("motor_time_dial", "motor_pickup_50a", "motor_dropout_50b"):
+        if key in settings:
+            st.session_state[f"{key}__slider"] = settings[key]
+            st.session_state[f"{key}__number"] = settings[key]
+
+    st.session_state["motor_loaded_file_hash"] = file_hash
+    st.rerun()
+
+
+st.sidebar.header("💾 Settings File")
+uploaded_settings = st.sidebar.file_uploader(
+    "Load ID Fan settings (.json)", type=["json"], key="motor_settings_upload"
+)
+if uploaded_settings is not None:
+    restore_motor_settings(uploaded_settings)
+
 st.sidebar.header("📋 Equipment Presets")
-selected_preset = st.sidebar.selectbox("Load Standard Profile", list(PRESETS.keys()))
+ensure_setting("motor_selected_preset", next(iter(PRESETS)))
+selected_preset = st.sidebar.selectbox("Load Standard Profile", list(PRESETS.keys()), key="motor_selected_preset")
 p_data = PRESETS[selected_preset]
 
 st.sidebar.header("1. Motor Data")
-motor_fla = st.sidebar.number_input("Full Load Current (A)", value=float(p_data["motor_fla"]), min_value=1.0, step=1.0)
-locked_rotor_amps = st.sidebar.number_input("Locked Rotor Current @ 100% V (A)", value=float(p_data["locked_rotor_amps"]), min_value=1.0, step=1.0)
-locked_rotor_amps_80 = st.sidebar.number_input("Locked Rotor Current @ 80% V (A)", value=float(p_data["locked_rotor_amps_80pct"]), min_value=1.0, step=1.0)
-accel_time_100 = st.sidebar.number_input("Acceleration Time @ 100% V (s)", value=p_data["accel_time_100"], min_value=0.1, step=0.1)
-accel_time_80 = st.sidebar.number_input("Acceleration Time @ 80% V (s)", value=p_data["accel_time_80"], min_value=0.1, step=0.1)
-safe_stall_100 = st.sidebar.number_input("Safe Stall Time @ 100% V, hot (s)", value=p_data["safe_stall_100_hot"], min_value=0.1, step=0.1,
+ensure_setting("motor_fla", float(p_data["motor_fla"]))
+ensure_setting("motor_lrc_100", float(p_data["locked_rotor_amps"]))
+ensure_setting("motor_lrc_80", float(p_data["locked_rotor_amps_80pct"]))
+ensure_setting("motor_accel_time_100", p_data["accel_time_100"])
+ensure_setting("motor_accel_time_80", p_data["accel_time_80"])
+ensure_setting("motor_safe_stall_100", p_data["safe_stall_100_hot"])
+ensure_setting("motor_safe_stall_80", p_data["safe_stall_80_hot"])
+motor_fla = st.sidebar.number_input("Full Load Current (A)", min_value=1.0, step=1.0, key="motor_fla")
+locked_rotor_amps = st.sidebar.number_input("Locked Rotor Current @ 100% V (A)", min_value=1.0, step=1.0, key="motor_lrc_100")
+locked_rotor_amps_80 = st.sidebar.number_input("Locked Rotor Current @ 80% V (A)", min_value=1.0, step=1.0, key="motor_lrc_80")
+accel_time_100 = st.sidebar.number_input("Acceleration Time @ 100% V (s)", min_value=0.1, step=0.1, key="motor_accel_time_100")
+accel_time_80 = st.sidebar.number_input("Acceleration Time @ 80% V (s)", min_value=0.1, step=0.1, key="motor_accel_time_80")
+safe_stall_100 = st.sidebar.number_input("Safe Stall Time @ 100% V, hot (s)", min_value=0.1, step=0.1, key="motor_safe_stall_100",
     help="Using the 'after one start attempt' (hot) value — the more conservative of the two documented safe stall times.")
-safe_stall_80 = st.sidebar.number_input("Safe Stall Time @ 80% V, hot (s)", value=p_data["safe_stall_80_hot"], min_value=0.1, step=0.1)
+safe_stall_80 = st.sidebar.number_input("Safe Stall Time @ 80% V, hot (s)", min_value=0.1, step=0.1, key="motor_safe_stall_80")
 
 st.sidebar.header("2. CT Spec")
-ct_ratio = st.sidebar.number_input("50/50/51 CT Ratio (Primary A, e.g. 600 in '600:5')", value=float(p_data["ct_ratio"]), min_value=1.0)
-ct_secondary_rating = st.sidebar.selectbox("CT Secondary Rating (A)", [1.0, 5.0], index=1, key="motor_ct_sec")
+ensure_setting("motor_ct_ratio", float(p_data["ct_ratio"]))
+ensure_setting("motor_ct_sec", p_data["ct_sec"])
+ct_ratio = st.sidebar.number_input("50/50/51 CT Ratio (Primary A, e.g. 600 in '600:5')", min_value=1.0, key="motor_ct_ratio")
+ct_secondary_rating = st.sidebar.selectbox("CT Secondary Rating (A)", [1.0, 5.0], key="motor_ct_sec")
 st.sidebar.caption(f"Effective ratio → **{ct_ratio/ct_secondary_rating:.1f}:1**")
 
 st.sidebar.header("3. 51 (Long Time Inverse)")
 tap_51_options = [2.5, 2.8, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.5]
+ensure_setting("motor_tap_51", p_data["tap_51"])
 tap_51 = st.sidebar.select_slider(
-    "51 Tap (A sec.)", options=tap_51_options, value=p_data["tap_51"],
+    "51 Tap (A sec.)", options=tap_51_options, key="motor_tap_51",
     help="IFC66KD2A range: 2.5-7.5A at these discrete taps."
 )
 time_dial = slider_with_exact_input(
     st.sidebar, "51 Time Dial", 0.5, 10.0, p_data["time_dial"], 0.1,
-    key=f"{selected_preset}__time_dial",
+    key="motor_time_dial",
     help_text="IFC66KD2A range: 1/2 to 10, continuously adjustable. Curve: GE IAC 'Long Time "
                "Inverse' 5-constant polynomial (GEK-106618C constants), calibrated to the "
                "settings doc's reference point of ~16s at 500% pickup."
@@ -80,22 +155,26 @@ time_dial = slider_with_exact_input(
 st.sidebar.header("4. 50A / 50B (Instantaneous)")
 pickup_50a = slider_with_exact_input(
     st.sidebar, "50A Pickup (A sec.)", 6.0, 150.0, p_data["pickup_50a"], 1.0,
-    key=f"{selected_preset}__pickup_50a",
+    key="motor_pickup_50a",
     help_text="IFC66KD2A range: L-tap 6-30A, H-tap 30-150A. Should be set at ~300% of locked "
                "rotor current to allow motor starting inrush."
 )
 dropout_50b = slider_with_exact_input(
     st.sidebar, "50B Dropout (A sec.)", 2.0, 8.0, p_data["dropout_50b"], 0.1,
-    key=f"{selected_preset}__dropout_50b",
+    key="motor_dropout_50b",
     help_text="IFC66KD2A range: L-tap 2-4A, H-tap 4-8A. High-dropout overload ALARM element — "
                "estimated pickup = dropout / 0.8 (per GEK-49949, dropout occurs above 80% of pickup)."
 )
-target_seal_in = st.sidebar.number_input("Target & Seal-in (A)", value=p_data["target_seal_in"], min_value=0.2, max_value=2.0, step=0.1)
+ensure_setting("motor_target_seal_in", p_data["target_seal_in"])
+target_seal_in = st.sidebar.number_input("Target & Seal-in (A)", min_value=0.2, max_value=2.0, step=0.1, key="motor_target_seal_in")
 
 st.sidebar.header("5. Backup Instantaneous (50)")
-enable_backup = st.sidebar.checkbox("Enable HFC22B2A backup relay", value=True)
-backup_ct_ratio = st.sidebar.number_input("Backup CT Ratio (Primary A, e.g. 3000 in '3000:5')", value=float(p_data["backup_ct_ratio"]), min_value=1.0, disabled=not enable_backup)
-backup_pickup_50 = st.sidebar.number_input("Backup 50 Pickup (A sec.)", value=p_data["backup_pickup_50"], min_value=2.0, max_value=50.0, step=0.5, disabled=not enable_backup)
+ensure_setting("motor_enable_backup", True)
+ensure_setting("motor_backup_ct_ratio", float(p_data["backup_ct_ratio"]))
+ensure_setting("motor_backup_pickup_50", p_data["backup_pickup_50"])
+enable_backup = st.sidebar.checkbox("Enable HFC22B2A backup relay", key="motor_enable_backup")
+backup_ct_ratio = st.sidebar.number_input("Backup CT Ratio (Primary A, e.g. 3000 in '3000:5')", min_value=1.0, key="motor_backup_ct_ratio", disabled=not enable_backup)
+backup_pickup_50 = st.sidebar.number_input("Backup 50 Pickup (A sec.)", min_value=2.0, max_value=50.0, step=0.5, key="motor_backup_pickup_50", disabled=not enable_backup)
 
 relay = MotorTimeOvercurrentRelay(
     ct_ratio=ct_ratio, ct_secondary_rating=ct_secondary_rating,
@@ -405,12 +484,17 @@ with tab4:
         "This record supports engineering review; it does not replace the approved protection study."
     )
 
-    source_document = st.text_input(
-        "Source document", value="Motor Protection Setting - IDFAN.pdf", key="motor_source_document"
-    )
+    ensure_setting("motor_source_document", "Motor Protection Setting - IDFAN.pdf")
+    ensure_setting("motor_revision", "Rev. 0")
+    ensure_setting("motor_prepared_by", "")
+    ensure_setting("motor_reviewed_by", "")
+    ensure_setting("motor_approval_status", "Draft — engineering review required")
+    ensure_setting("motor_review_note", "")
+
+    source_document = st.text_input("Source document", key="motor_source_document")
     col_doc_1, col_doc_2 = st.columns(2)
     with col_doc_1:
-        revision = st.text_input("Document / settings revision", value="Rev. 0", key="motor_revision")
+        revision = st.text_input("Document / settings revision", key="motor_revision")
         prepared_by = st.text_input("Prepared by", key="motor_prepared_by")
     with col_doc_2:
         reviewed_by = st.text_input("Reviewed by", key="motor_reviewed_by")
@@ -506,4 +590,19 @@ with tab4:
         data=approval_pdf_bytes,
         file_name=f"IDFan_Settings_Summary_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
         mime="application/pdf",
+    )
+
+    settings_export = {
+        "format": "POMI Protection Relay Suite settings",
+        "version": 1,
+        "equipment": "id_fan_motor",
+        "exported_at": datetime.datetime.now().isoformat(timespec="seconds"),
+        "settings": {key: st.session_state[key] for key in MOTOR_CONFIG_FIELDS},
+    }
+    st.download_button(
+        label="💾 Save ID Fan Settings (.json)",
+        data=json.dumps(settings_export, indent=2),
+        file_name=f"IDFan_Settings_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.json",
+        mime="application/json",
+        help="Download the active settings and document-control fields for later reload in this app.",
     )

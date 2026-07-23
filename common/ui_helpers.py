@@ -13,7 +13,11 @@ def slider_with_exact_input(container, label, min_v, max_v, default, step, key, 
 
     if key not in st.session_state:
         st.session_state[key] = default
+
+    if slider_key not in st.session_state:
         st.session_state[slider_key] = default
+
+    if number_key not in st.session_state:
         st.session_state[number_key] = default
 
     def _on_slider_change():
@@ -30,13 +34,13 @@ def slider_with_exact_input(container, label, min_v, max_v, default, step, key, 
     col_s, col_n = container.columns([2.4, 1])
     with col_s:
         st.slider(
-            label, min_value=min_v, max_value=max_v, value=st.session_state[key],
-            step=step, key=slider_key, on_change=_on_slider_change, help=help_text
+            label, min_value=min_v, max_value=max_v, step=step,
+            key=slider_key, on_change=_on_slider_change, help=help_text
         )
     with col_n:
         st.number_input(
-            "Exact", min_value=min_v, max_value=max_v, value=st.session_state[key],
-            step=step, key=number_key, on_change=_on_number_change, label_visibility="collapsed"
+            "Exact", min_value=min_v, max_value=max_v, step=step,
+            key=number_key, on_change=_on_number_change, label_visibility="collapsed"
         )
 
     return st.session_state[key]
