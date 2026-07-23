@@ -111,3 +111,39 @@ def generate_generator_pdf_report(unit_name, relay_obj, evals, phases):
         sections=[("Generator Parameters", generator_rows), ("Relay Parameters", relay_rows)],
         results_header=results_header, results_rows=results_rows,
     )
+
+
+def generate_transformer_pdf_report(unit_name, relay_obj, evals, phases, relay_type_label="CAC1-10-M3"):
+    """Transformer differential (87T) report — built on the same shared
+    build_pdf_report() used for the Generator report. Works for any winding
+    count (2-winding EXCT/GSUT, 3-winding Overall)."""
+    report_title = f"Transformer Differential Protection (87T) Evaluation Report - {unit_name}"
+    meta_text = f"<b>Date/Time:</b> {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | <b>Configuration:</b> {unit_name}"
+
+    transformer_rows = [["Parameter", "Value"], ["Transformer Rating", f"{relay_obj.mva_rated} MVA"]]
+    for w in relay_obj.windings:
+        transformer_rows.append([f"{w['name']} Rated Voltage", f"{w['kv']} kV"])
+        transformer_rows.append([f"{w['name']} CT Ratio", f"{w['ct_ratio']:.0f}:{w['ct_secondary_rating']:.0f}"])
+        transformer_rows.append([f"{w['name']} Tap", f"{w['tap']:.3f}"])
+
+    relay_rows = [
+        ["Parameter", "Value"],
+        ["Relay Type", relay_type_label],
+        ["Bias (Slope)", f"{relay_obj.bias*100:.1f} %"],
+        ["Minimum Operate", f"{relay_obj.min_operate_pu*100:.1f} %"],
+        ["HOC (Unrestrained High-Set)", f"{relay_obj.hoc_pu:.2f} x tap current"],
+        ["Restraint Convention", relay_obj.convention],
+        ["CT Polarity Reference", relay_obj.ct_polarity],
+    ]
+
+    results_header = ["Phase", "I_op [pu]", "I_rest [pu]", "Threshold [pu]", "Status"]
+    results_rows = []
+    for p in phases:
+        e = evals[p]
+        results_rows.append([p, f"{e['i_op_pu']:.3f}", f"{e['i_rest_pu']:.3f}", f"{e['i_threshold_pu']:.3f}", e['status']])
+
+    return build_pdf_report(
+        report_title, meta_text,
+        sections=[("Transformer Parameters", transformer_rows), ("Relay Parameters", relay_rows)],
+        results_header=results_header, results_rows=results_rows,
+    )
