@@ -22,6 +22,12 @@ st.info(
     "fault, unbalance, RTD bias, and other multi-function elements) is not yet implemented."
 )
 
+st.warning(
+    "⚠️ **Engineering review required.** This tool supports settings checks and commissioning "
+    "calculations; it does not approve relay settings. Verify every result against the approved "
+    "coordination study, relay manual, and site test procedure before applying settings in service."
+)
+
 # ---------------------------------------------------------------------------
 # Presets — from Motor_Protection_Setting_-_IDFAN.pdf, Sections 5.1 / 5.1.1 / 5.1.2
 # ---------------------------------------------------------------------------
@@ -43,17 +49,17 @@ selected_preset = st.sidebar.selectbox("Load Standard Profile", list(PRESETS.key
 p_data = PRESETS[selected_preset]
 
 st.sidebar.header("1. Motor Data")
-motor_fla = st.sidebar.number_input("Full Load Current (A)", value=float(p_data["motor_fla"]), step=1.0)
-locked_rotor_amps = st.sidebar.number_input("Locked Rotor Current @ 100% V (A)", value=float(p_data["locked_rotor_amps"]), step=1.0)
-locked_rotor_amps_80 = st.sidebar.number_input("Locked Rotor Current @ 80% V (A)", value=float(p_data["locked_rotor_amps_80pct"]), step=1.0)
-accel_time_100 = st.sidebar.number_input("Acceleration Time @ 100% V (s)", value=p_data["accel_time_100"], step=0.1)
-accel_time_80 = st.sidebar.number_input("Acceleration Time @ 80% V (s)", value=p_data["accel_time_80"], step=0.1)
-safe_stall_100 = st.sidebar.number_input("Safe Stall Time @ 100% V, hot (s)", value=p_data["safe_stall_100_hot"], step=0.1,
+motor_fla = st.sidebar.number_input("Full Load Current (A)", value=float(p_data["motor_fla"]), min_value=1.0, step=1.0)
+locked_rotor_amps = st.sidebar.number_input("Locked Rotor Current @ 100% V (A)", value=float(p_data["locked_rotor_amps"]), min_value=1.0, step=1.0)
+locked_rotor_amps_80 = st.sidebar.number_input("Locked Rotor Current @ 80% V (A)", value=float(p_data["locked_rotor_amps_80pct"]), min_value=1.0, step=1.0)
+accel_time_100 = st.sidebar.number_input("Acceleration Time @ 100% V (s)", value=p_data["accel_time_100"], min_value=0.1, step=0.1)
+accel_time_80 = st.sidebar.number_input("Acceleration Time @ 80% V (s)", value=p_data["accel_time_80"], min_value=0.1, step=0.1)
+safe_stall_100 = st.sidebar.number_input("Safe Stall Time @ 100% V, hot (s)", value=p_data["safe_stall_100_hot"], min_value=0.1, step=0.1,
     help="Using the 'after one start attempt' (hot) value — the more conservative of the two documented safe stall times.")
-safe_stall_80 = st.sidebar.number_input("Safe Stall Time @ 80% V, hot (s)", value=p_data["safe_stall_80_hot"], step=0.1)
+safe_stall_80 = st.sidebar.number_input("Safe Stall Time @ 80% V, hot (s)", value=p_data["safe_stall_80_hot"], min_value=0.1, step=0.1)
 
 st.sidebar.header("2. CT Spec")
-ct_ratio = st.sidebar.number_input("50/50/51 CT Ratio (Primary A, e.g. 600 in '600:5')", value=p_data["ct_ratio"])
+ct_ratio = st.sidebar.number_input("50/50/51 CT Ratio (Primary A, e.g. 600 in '600:5')", value=float(p_data["ct_ratio"]), min_value=1.0)
 ct_secondary_rating = st.sidebar.selectbox("CT Secondary Rating (A)", [1.0, 5.0], index=1, key="motor_ct_sec")
 st.sidebar.caption(f"Effective ratio → **{ct_ratio/ct_secondary_rating:.1f}:1**")
 
@@ -88,7 +94,7 @@ target_seal_in = st.sidebar.number_input("Target & Seal-in (A)", value=p_data["t
 
 st.sidebar.header("5. Backup Instantaneous (50)")
 enable_backup = st.sidebar.checkbox("Enable HFC22B2A backup relay", value=True)
-backup_ct_ratio = st.sidebar.number_input("Backup CT Ratio (Primary A, e.g. 3000 in '3000:5')", value=p_data["backup_ct_ratio"], disabled=not enable_backup)
+backup_ct_ratio = st.sidebar.number_input("Backup CT Ratio (Primary A, e.g. 3000 in '3000:5')", value=float(p_data["backup_ct_ratio"]), min_value=1.0, disabled=not enable_backup)
 backup_pickup_50 = st.sidebar.number_input("Backup 50 Pickup (A sec.)", value=p_data["backup_pickup_50"], min_value=2.0, max_value=50.0, step=0.5, disabled=not enable_backup)
 
 relay = MotorTimeOvercurrentRelay(
@@ -101,7 +107,12 @@ backup_relay = BackupInstantaneousRelay(
     ct_ratio=backup_ct_ratio, ct_secondary_rating=ct_secondary_rating, pickup_amps=backup_pickup_50
 ) if enable_backup else None
 
-tab1, tab2, tab3 = st.tabs(["📊 Live Simulation", "🧰 Commissioning & Injection Tool", "📈 TCC Curve"])
+tab1, tab2, tab3, tab4 = st.tabs([
+    "📊 Live Simulation",
+    "🧰 Commissioning & Injection Tool",
+    "📈 TCC Curve",
+    "📄 Settings Summary & Approval",
+])
 
 # ---------------------------------------------------------------------------
 # TAB 1 — Live Simulation
@@ -176,6 +187,64 @@ with tab1:
                 st.success("✅ Margin OK")
             else:
                 st.error("⚠️ Check margin")
+
+        st.markdown("---")
+        st.markdown("**Engineering Input Checks**")
+        st.caption("These checks highlight conditions that need engineering review; they are not automatic setting approvals.")
+
+        pickup_51_primary = relay.tap_51 * relay.effective_ratio
+        pickup_50a_primary = relay.pickup_50a * relay.effective_ratio
+        pickup_50b_primary = relay.pickup_50b * relay.effective_ratio
+        backup_pickup_primary = (
+            backup_relay.pickup_amps * backup_relay.effective_ratio
+            if backup_relay is not None else None
+        )
+
+        checks = [
+            (
+                "51 pickup above motor FLA",
+                pickup_51_primary > motor_fla,
+                f"51 pickup = {pickup_51_primary:.0f} A primary ({pickup_51_primary / motor_fla:.2f} × FLA)",
+                "51 pickup is at or below motor FLA; review overload coordination.",
+            ),
+            (
+                "50A pickup above locked-rotor current",
+                pickup_50a_primary > locked_rotor_amps,
+                f"50A pickup = {pickup_50a_primary:.0f} A primary ({pickup_50a_primary / locked_rotor_amps:.2f} × LRC)",
+                "50A pickup is at or below locked-rotor current; a normal start could trip instantaneously.",
+            ),
+            (
+                "50B alarm pickup above motor FLA",
+                pickup_50b_primary > motor_fla,
+                f"50B estimated pickup = {pickup_50b_primary:.0f} A primary ({pickup_50b_primary / motor_fla:.2f} × FLA)",
+                "50B alarm pickup is at or below motor FLA; review the overload-alarm setting.",
+            ),
+            (
+                "100% voltage safe-stall time exceeds acceleration time",
+                safe_stall_100 > accel_time_100,
+                f"Acceleration = {accel_time_100:.1f} s; safe stall = {safe_stall_100:.1f} s",
+                "The 100% voltage safe-stall time is not greater than the acceleration time.",
+            ),
+            (
+                "80% voltage safe-stall time exceeds acceleration time",
+                safe_stall_80 > accel_time_80,
+                f"Acceleration = {accel_time_80:.1f} s; safe stall = {safe_stall_80:.1f} s",
+                "The 80% voltage safe-stall time is not greater than the acceleration time.",
+            ),
+        ]
+        if backup_pickup_primary is not None:
+            checks.append((
+                "Backup 50 pickup above locked-rotor current",
+                backup_pickup_primary > locked_rotor_amps,
+                f"Backup 50 pickup = {backup_pickup_primary:.0f} A primary ({backup_pickup_primary / locked_rotor_amps:.2f} × LRC)",
+                "Backup 50 pickup is at or below locked-rotor current; review starting security and coordination.",
+            ))
+
+        for label, passed, detail, review_note in checks:
+            if passed:
+                st.success(f"✅ **{label}:** {detail}")
+            else:
+                st.error(f"⚠️ **{label}:** {review_note} ({detail})")
 
         pdf_bytes = generate_motor_pdf_report(
             selected_preset, relay, eval_result, test_current,
@@ -323,4 +392,118 @@ with tab3:
         "The 51 curve should pass BELOW both safe-stall markers (X) and ABOVE both starting "
         "markers (▲) for correct coordination — i.e. the relay must not trip during a normal "
         "start, but must trip before the motor's insulation is thermally damaged on a stall."
+    )
+
+
+# ---------------------------------------------------------------------------
+# TAB 4 — Settings Summary & Approval
+# ---------------------------------------------------------------------------
+with tab4:
+    st.subheader("📄 Settings Summary & Approval Record")
+    st.caption(
+        "Record the settings basis and review status before exporting a controlled report. "
+        "This record supports engineering review; it does not replace the approved protection study."
+    )
+
+    source_document = st.text_input(
+        "Source document", value="Motor Protection Setting - IDFAN.pdf", key="motor_source_document"
+    )
+    col_doc_1, col_doc_2 = st.columns(2)
+    with col_doc_1:
+        revision = st.text_input("Document / settings revision", value="Rev. 0", key="motor_revision")
+        prepared_by = st.text_input("Prepared by", key="motor_prepared_by")
+    with col_doc_2:
+        reviewed_by = st.text_input("Reviewed by", key="motor_reviewed_by")
+        approval_status = st.selectbox(
+            "Review status",
+            ["Draft — engineering review required", "Reviewed — pending approval", "Approved for issue"],
+            key="motor_approval_status",
+        )
+    review_note = st.text_area("Review note / change description", key="motor_review_note")
+
+    st.markdown("### Applied Settings")
+    summary_rows = [
+        {"Category": "Motor", "Parameter": "Full-load current", "Value": f"{motor_fla:.0f} A"},
+        {"Category": "Motor", "Parameter": "Locked-rotor current", "Value": f"{locked_rotor_amps:.0f} A at 100% V / {locked_rotor_amps_80:.0f} A at 80% V"},
+        {"Category": "CT", "Parameter": "50/50/51 CT ratio", "Value": f"{ct_ratio:.0f}:{ct_secondary_rating:.0f}"},
+        {"Category": "51", "Parameter": "Tap / time dial", "Value": f"{tap_51:.2f} A sec. / {time_dial:.2f}"},
+        {"Category": "50A", "Parameter": "Instantaneous pickup", "Value": f"{pickup_50a:.2f} A sec. ({pickup_50a * relay.effective_ratio:.0f} A primary)"},
+        {"Category": "50B", "Parameter": "Alarm dropout / estimated pickup", "Value": f"{dropout_50b:.2f} / {relay.pickup_50b:.2f} A sec."},
+    ]
+    if backup_relay is not None:
+        summary_rows.append({
+            "Category": "Backup 50", "Parameter": "CT ratio / pickup",
+            "Value": f"{backup_ct_ratio:.0f}:{ct_secondary_rating:.0f} / {backup_pickup_50:.2f} A sec.",
+        })
+    st.dataframe(pd.DataFrame(summary_rows), use_container_width=True, hide_index=True)
+
+    st.markdown("### Coordination Review")
+    trip_time_100 = f"{t_at_lrc_100:.1f} s" if t_at_lrc_100 is not None else "No trip"
+    trip_time_80 = f"{t_at_lrc_80:.1f} s" if t_at_lrc_80 is not None else "No trip"
+    summary_checks = [
+        {
+            "label": "51 pickup above motor FLA",
+            "passed": relay.tap_51 * relay.effective_ratio > motor_fla,
+            "detail": f"{relay.tap_51 * relay.effective_ratio:.0f} A primary versus {motor_fla:.0f} A FLA",
+        },
+        {
+            "label": "50A pickup above locked-rotor current",
+            "passed": relay.pickup_50a * relay.effective_ratio > locked_rotor_amps,
+            "detail": f"{relay.pickup_50a * relay.effective_ratio:.0f} A primary versus {locked_rotor_amps:.0f} A LRC",
+        },
+        {
+            "label": "51 coordination at 100% voltage",
+            "passed": t_at_lrc_100 is not None and accel_time_100 < t_at_lrc_100 < safe_stall_100,
+            "detail": f"Start {accel_time_100:.1f} s / trip {trip_time_100} / safe stall {safe_stall_100:.1f} s",
+        },
+        {
+            "label": "51 coordination at 80% voltage",
+            "passed": t_at_lrc_80 is not None and accel_time_80 < t_at_lrc_80 < safe_stall_80,
+            "detail": f"Start {accel_time_80:.1f} s / trip {trip_time_80} / safe stall {safe_stall_80:.1f} s",
+        },
+    ]
+    if backup_relay is not None:
+        summary_checks.append({
+            "label": "Backup 50 pickup above locked-rotor current",
+            "passed": backup_relay.pickup_amps * backup_relay.effective_ratio > locked_rotor_amps,
+            "detail": f"{backup_relay.pickup_amps * backup_relay.effective_ratio:.0f} A primary versus {locked_rotor_amps:.0f} A LRC",
+        })
+
+    all_checks_pass = all(check["passed"] for check in summary_checks)
+    if all_checks_pass:
+        st.success("✅ All displayed coordination checks pass. Engineering approval is still required before issue.")
+    else:
+        st.error("⚠️ One or more coordination checks require engineering review before approval.")
+    st.dataframe(
+        pd.DataFrame([
+            {"Check": check["label"], "Result": "PASS" if check["passed"] else "REVIEW REQUIRED", "Basis": check["detail"]}
+            for check in summary_checks
+        ]),
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    approval = {
+        "source_document": source_document,
+        "revision": revision,
+        "prepared_by": prepared_by or "Not recorded",
+        "reviewed_by": reviewed_by or "Not recorded",
+        "approval_status": approval_status,
+        "review_note": review_note or "None",
+    }
+    approval_pdf_bytes = generate_motor_pdf_report(
+        selected_preset,
+        relay,
+        eval_result,
+        test_current,
+        backup_relay_obj=backup_relay,
+        backup_eval_result=backup_result,
+        approval=approval,
+        coordination_checks=summary_checks,
+    )
+    st.download_button(
+        label="📄 Download Settings Summary & Approval Report (PDF)",
+        data=approval_pdf_bytes,
+        file_name=f"IDFan_Settings_Summary_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+        mime="application/pdf",
     )

@@ -150,7 +150,8 @@ def generate_transformer_pdf_report(unit_name, relay_obj, evals, phases, relay_t
 
 
 def generate_motor_pdf_report(unit_name, relay_obj, eval_result, test_current_amps,
-                               backup_relay_obj=None, backup_eval_result=None):
+                               backup_relay_obj=None, backup_eval_result=None,
+                               approval=None, coordination_checks=None):
     """Motor 50/50/51 time-overcurrent (IFC66KD2A) report — built on the same
     shared build_pdf_report(). Single test-current evaluation (this relay
     is single-phase A & C, not a 3-phase differential), with an optional
@@ -199,6 +200,25 @@ def generate_motor_pdf_report(unit_name, relay_obj, eval_result, test_current_am
             ["Status", backup_eval_result["status"]],
         ]
         sections.append(("Backup Instantaneous Relay (50)", backup_rows))
+
+    if coordination_checks:
+        coordination_rows = [["Check", "Result"]]
+        for check in coordination_checks:
+            result = "PASS" if check["passed"] else "REVIEW REQUIRED"
+            coordination_rows.append([check["label"], f"{result} — {check['detail']}"])
+        sections.append(("Coordination Checks", coordination_rows))
+
+    if approval:
+        approval_rows = [
+            ["Parameter", "Value"],
+            ["Source Document", approval.get("source_document", "Not recorded")],
+            ["Revision", approval.get("revision", "Not recorded")],
+            ["Prepared By", approval.get("prepared_by", "Not recorded")],
+            ["Reviewed By", approval.get("reviewed_by", "Not recorded")],
+            ["Approval Status", approval.get("approval_status", "Not recorded")],
+            ["Review Note", approval.get("review_note", "None")],
+        ]
+        sections.append(("Document Control and Approval", approval_rows))
 
     return build_pdf_report(
         report_title, meta_text,
