@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from common.pdf_report import generate_transformer_pdf_report
+from common.sld import two_winding_transformer_zone_svg
 from common.ui_helpers import slider_with_exact_input
 from engines.transformer import TransformerDifferentialRelay
 
@@ -121,7 +122,24 @@ relay = TransformerDifferentialRelay(
 phases = ["Phase A", "Phase B", "Phase C"]
 amps_base = relay.windings[0]["i_rated_sec"]  # HV-side rated secondary current, used as pu base for charts
 
-tab1, tab2, tab3 = st.tabs(["📊 Live Vector Simulation", "🧰 Commissioning & Injection Tool", "🧪 Test Point Verification & Curve"])
+tab_sld, tab1, tab2, tab3 = st.tabs([
+    "🗺️ Protection Zone (SLD)", "📊 Live Vector Simulation",
+    "🧰 Commissioning & Injection Tool", "🧪 Test Point Verification & Curve"
+])
+
+with tab_sld:
+    st.subheader("🗺️ Protection Zone — Single Line Diagram")
+    st.caption(
+        "Simplified schematic showing where the CTs sit and what falls inside the 87GT "
+        "differential zone — not a reproduction of the site's as-built wiring diagram."
+    )
+    st.markdown(
+        two_winding_transformer_zone_svg(
+            relay, ct_polarity, tag="87GT",
+            hv_bus_label="525kV (to 500kV Grid)", lv_bus_label="23kV (Generator Bus)"
+        ),
+        unsafe_allow_html=True
+    )
 
 # ---------------------------------------------------------------------------
 # TAB 1 — Live Simulation

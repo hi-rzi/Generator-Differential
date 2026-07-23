@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from common.pdf_report import generate_generator_pdf_report
+from common.sld import generator_zone_svg
 from common.ui_helpers import slider_with_exact_input
 from engines.generator import AdvancedDifferentialRelay
 
@@ -157,8 +158,18 @@ relay = AdvancedDifferentialRelay(
     target_amps=target_amps
 )
 
-tab1, tab2, tab3 = st.tabs(["📊 Live Vector Simulation", "🧰 Commissioning & Injection Tool", "🧪 Test Point Verification & Curve"])
+tab_sld, tab1, tab2, tab3 = st.tabs([
+    "🗺️ Protection Zone (SLD)", "📊 Live Vector Simulation",
+    "🧰 Commissioning & Injection Tool", "🧪 Test Point Verification & Curve"
+])
 
+with tab_sld:
+    st.subheader("🗺️ Protection Zone — Single Line Diagram")
+    st.caption(
+        "Simplified schematic showing where the CTs sit and what falls inside the 87G "
+        "differential zone — not a reproduction of the site's as-built wiring diagram."
+    )
+    st.markdown(generator_zone_svg(relay, ct_polarity, tag="87G"), unsafe_allow_html=True)
 
 with tab1:
     col_inputs, col_results = st.columns([1.2, 1.0])
