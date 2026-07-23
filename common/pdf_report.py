@@ -147,3 +147,62 @@ def generate_transformer_pdf_report(unit_name, relay_obj, evals, phases, relay_t
         sections=[("Transformer Parameters", transformer_rows), ("Relay Parameters", relay_rows)],
         results_header=results_header, results_rows=results_rows,
     )
+
+
+def generate_motor_pdf_report(unit_name, relay_obj, eval_result, test_current_amps,
+                               backup_relay_obj=None, backup_eval_result=None):
+    """Motor 50/50/51 time-overcurrent (IFC66KD2A) report — built on the same
+    shared build_pdf_report(). Single test-current evaluation (this relay
+    is single-phase A & C, not a 3-phase differential), with an optional
+    second section for the backup 50 (HFC22B2A) instantaneous relay."""
+    report_title = f"Motor Time-Overcurrent Protection (50/50/51) Evaluation Report - {unit_name}"
+    meta_text = f"<b>Date/Time:</b> {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | <b>Configuration:</b> {unit_name}"
+
+    motor_rows = [
+        ["Parameter", "Value"],
+        ["CT Ratio", f"{relay_obj.ct_ratio:.0f}:{relay_obj.ct_secondary_rating:.0f}"],
+    ]
+    if relay_obj.motor_fla is not None:
+        motor_rows.append(["Motor Full Load Current", f"{relay_obj.motor_fla:.0f} A"])
+    if relay_obj.locked_rotor_amps is not None:
+        motor_rows.append(["Locked Rotor Current", f"{relay_obj.locked_rotor_amps:.0f} A"])
+
+    relay_rows = [
+        ["Parameter", "Value"],
+        ["Relay Type", "GE IFC66KD2A (GEK-49949)"],
+        ["51 Tap", f"{relay_obj.tap_51:.2f} A sec."],
+        ["51 Time Dial", f"{relay_obj.time_dial:.2f}"],
+        ["50A Pickup (Instantaneous)", f"{relay_obj.pickup_50a:.2f} A sec."],
+        ["50B Dropout (Overload Alarm)", f"{relay_obj.dropout_50b:.2f} A sec."],
+        ["Target & Seal-in", f"{relay_obj.target_seal_in:.2f} A"],
+    ]
+
+    results_header = ["Test Current (Pri A)", "Relay Sec. (A)", "51 Multiple", "51 Trip Time", "Status"]
+    t51_str = f"{eval_result['t51']:.2f}s" if eval_result["t51"] is not None else "No Trip"
+    results_rows = [[
+        f"{test_current_amps:.1f}",
+        f"{eval_result['i_relay_sec']:.3f}",
+        f"{eval_result['multiple_of_pickup_51']:.2f}x",
+        t51_str,
+        eval_result["status"],
+    ]]
+
+    sections = [("Motor Data", motor_rows), ("Relay Parameters (50/50/51)", relay_rows)]
+
+    if backup_relay_obj is not None and backup_eval_result is not None:
+        backup_rows = [
+            ["Parameter", "Value"],
+            ["Relay Type", "GE HFC22B2A (GEK-49826C)"],
+            ["CT Ratio", f"{backup_relay_obj.ct_ratio:.0f}:{backup_relay_obj.ct_secondary_rating:.0f}"],
+            ["50 Pickup", f"{backup_relay_obj.pickup_amps:.2f} A sec."],
+            ["Relay Secondary Current at Test", f"{backup_eval_result['i_relay_sec']:.3f} A"],
+            ["Status", backup_eval_result["status"]],
+        ]
+        sections.append(("Backup Instantaneous Relay (50)", backup_rows))
+
+    return build_pdf_report(
+        report_title, meta_text,
+        sections=sections,
+        results_header=results_header, results_rows=results_rows,
+        results_col_widths=(90, 90, 80, 90, 150),
+    )
