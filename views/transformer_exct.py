@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from common.pdf_report import generate_transformer_pdf_report
-from common.sld import two_winding_transformer_zone_svg
+from common.sld import two_winding_transformer_zone_svg, render_zone_diagram
 from common.ui_helpers import slider_with_exact_input
 from engines.transformer import TransformerDifferentialRelay
 
@@ -122,15 +122,14 @@ tab_sld, tab1, tab2, tab3 = st.tabs([
 with tab_sld:
     st.subheader("🗺️ Protection Zone — Single Line Diagram")
     st.caption(
-        "Simplified schematic showing where the CTs sit and what falls inside the 87ET "
-        "differential zone — not a reproduction of the site's as-built wiring diagram."
+        "Shows where the CTs sit and what falls inside the 87ET differential zone."
     )
-    st.markdown(
+    render_zone_diagram(
+        "exct.png",
         two_winding_transformer_zone_svg(
             relay, ct_polarity, tag="87ET",
             hv_bus_label="23kV (from Generator terminals)", lv_bus_label="900V (to Exciter)"
-        ),
-        unsafe_allow_html=True
+        )
     )
 
 # ---------------------------------------------------------------------------

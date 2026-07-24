@@ -8,11 +8,34 @@ not a reproduction of any site as-built drawing — just enough to show WHERE
 the CTs sit and WHAT is inside the protected zone for a given relay.
 """
 
+import os
+
+import streamlit as st
+
 BUS_COLOR = "#1F2937"
 CT_COLOR = "#2563EB"
 ZONE_COLOR = "#DC2626"
 LEADER_COLOR = "#6B7280"
 TEXT_COLOR = "#111827"
+
+ASSET_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "sld")
+
+
+def render_zone_diagram(image_filename, fallback_svg_html):
+    """
+    Show the engineer's real AutoCAD Electrical SLD (assets/sld/<image_filename>)
+    if it's been provided; otherwise fall back to the auto-generated schematic so
+    the tab never looks broken while the real drawing is still pending.
+    """
+    image_path = os.path.join(ASSET_DIR, image_filename)
+    if os.path.isfile(image_path):
+        st.image(image_path, use_container_width=True)
+    else:
+        st.info(
+            "No AutoCAD Electrical SLD provided yet for this equipment — showing an "
+            "auto-generated placeholder schematic instead."
+        )
+        st.markdown(fallback_svg_html, unsafe_allow_html=True)
 
 
 def _header(width, height):

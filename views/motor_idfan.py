@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from common.pdf_report import generate_motor_pdf_report
-from common.sld import motor_overcurrent_svg
+from common.sld import motor_overcurrent_svg, render_zone_diagram
 from common.ui_helpers import slider_with_exact_input
 from engines.motor import MotorTimeOvercurrentRelay, BackupInstantaneousRelay
 
@@ -198,16 +198,15 @@ tab_sld, tab1, tab2, tab3, tab4 = st.tabs([
 with tab_sld:
     st.subheader("🗺️ Protection Zone — Single Line Diagram")
     st.caption(
-        "Simplified schematic showing the CT(s) and discrete overcurrent relay(s) ahead of the "
-        "motor breaker — not a reproduction of the site's as-built wiring diagram."
+        "Shows the CT(s) and discrete overcurrent relay(s) ahead of the motor breaker."
     )
-    st.markdown(
+    render_zone_diagram(
+        "motor_idfan.png",
         motor_overcurrent_svg(
             ct_ratio, ct_secondary_rating,
             backup_ct_ratio=backup_ct_ratio if enable_backup else None,
             tag="50/50/51", backup_tag="50 (HFC22B2A)"
-        ),
-        unsafe_allow_html=True
+        )
     )
 
 # ---------------------------------------------------------------------------

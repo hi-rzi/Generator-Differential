@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from common.pdf_report import generate_transformer_pdf_report
-from common.sld import overall_zone_svg
+from common.sld import overall_zone_svg, render_zone_diagram
 from common.ui_helpers import slider_with_exact_input
 from engines.transformer import TransformerDifferentialRelay
 
@@ -146,10 +146,10 @@ tab_sld, tab1, tab2, tab3 = st.tabs([
 with tab_sld:
     st.subheader("🗺️ Protection Zone — Single Line Diagram")
     st.caption(
-        "Simplified schematic showing the three-restraint backup zone spanning the Generator, "
-        "GSUT, and Unit Auxiliary Transformer — not a reproduction of the site's as-built wiring diagram."
+        "Shows the three-restraint backup zone spanning the Generator, GSUT, and Unit "
+        "Auxiliary Transformer."
     )
-    st.markdown(overall_zone_svg(relay, ct_polarity, tag="87OA/87OB"), unsafe_allow_html=True)
+    render_zone_diagram("overall.png", overall_zone_svg(relay, ct_polarity, tag="87OA/87OB"))
 
 # ---------------------------------------------------------------------------
 # TAB 1 — Live Simulation
