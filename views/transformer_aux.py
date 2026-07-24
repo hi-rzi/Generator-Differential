@@ -8,7 +8,7 @@ import streamlit as st
 from common.pdf_report import generate_transformer_pdf_report
 from common.sld import two_winding_transformer_zone_svg, render_zone_diagram
 from common.ui_helpers import slider_with_exact_input, MR_CT_TAPS_3000_5
-from engines.transformer import TransformerDifferentialRelay
+from engines.transformer import TransformerDifferentialRelay, winding_internal_vector, raw_input_for_internal_vector
 
 st.title("🔌 Unit Auxiliary Transformer (UAT) Differential Protection")
 st.caption(
@@ -172,10 +172,19 @@ with tab1:
         for idx, phase in enumerate(phases):
             with st.expander(f"📌 {phase} Settings", expanded=(phase == "Phase A")):
                 c1, c2 = st.columns(2)
-                def_val_hv = relay.windings[0]["i_rated_pri"] if phase == "Phase A" else 0.0
-                def_val_lv = relay.windings[1]["i_rated_pri"] if phase == "Phase A" else 0.0
                 def_ang_hv = -120.0 * idx
-                def_ang_lv = def_ang_hv + 180.0 if ct_polarity == "OPPOSITE" else def_ang_hv
+                if phase == "Phase A":
+                    def_val_hv = relay.windings[0]["i_rated_pri"]
+                    # Solve LV's default so a healthy through-load actually cancels
+                    # to ~0 pu, accounting for each winding's own Delta/Wye CT
+                    # compensation - not just a naive +-180 degree guess.
+                    vec_hv_internal = winding_internal_vector(relay, 0, def_val_hv, def_ang_hv)
+                    target_lv_internal = vec_hv_internal if ct_polarity == "OPPOSITE" else -vec_hv_internal
+                    def_val_lv, def_ang_lv = raw_input_for_internal_vector(relay, 1, target_lv_internal)
+                else:
+                    def_val_hv = 0.0
+                    def_val_lv = 0.0
+                    def_ang_lv = def_ang_hv + 180.0 if ct_polarity == "OPPOSITE" else def_ang_hv
 
                 with c1:
                     i_hv = st.number_input(f"HV Primary Amps [A]", value=def_val_hv, key=f"aux_hv_i_{phase}")

@@ -8,7 +8,7 @@ import streamlit as st
 from common.pdf_report import generate_transformer_pdf_report
 from common.sld import overall_zone_svg, render_zone_diagram
 from common.ui_helpers import slider_with_exact_input, MR_CT_TAPS_2000_5
-from engines.transformer import TransformerDifferentialRelay
+from engines.transformer import TransformerDifferentialRelay, winding_internal_vector, raw_input_for_internal_vector
 
 st.title("🔌 Overall GSUT-GEN Differential Protection")
 st.caption(
@@ -180,9 +180,20 @@ with tab1:
                 c1, c2, c3 = st.columns(3)
                 def_ang_hv = -120.0 * idx
                 def_ang_other = def_ang_hv + 180.0 if ct_polarity == "OPPOSITE" else def_ang_hv
-                def_val_hv = relay.windings[0]["i_rated_pri"] if phase == "Phase A" else 0.0
-                def_val_gen = relay.windings[1]["i_rated_pri"] if phase == "Phase A" else 0.0
                 def_val_uat = 0.0  # UAT typically carries house-load current, not full rating, by default
+                if phase == "Phase A":
+                    def_val_hv = relay.windings[0]["i_rated_pri"]
+                    # Solve Generator's default so a healthy through-load (with UAT
+                    # off-load, i.e. 0A by default, so HV and Generator alone must
+                    # cancel) actually nets to ~0 pu, accounting for HV's Delta CT
+                    # compensation - not just a naive +-180 degree guess.
+                    vec_hv_internal = winding_internal_vector(relay, 0, def_val_hv, def_ang_hv)
+                    target_gen_internal = vec_hv_internal if ct_polarity == "OPPOSITE" else -vec_hv_internal
+                    def_val_gen, def_ang_gen = raw_input_for_internal_vector(relay, 1, target_gen_internal)
+                else:
+                    def_val_hv = 0.0
+                    def_val_gen = 0.0
+                    def_ang_gen = def_ang_other
 
                 with c1:
                     st.markdown("**HV**")
@@ -191,7 +202,7 @@ with tab1:
                 with c2:
                     st.markdown("**Generator**")
                     i_gen = st.number_input("Primary Amps [A]", value=def_val_gen, key=f"ov_gen_i_{phase}")
-                    a_gen = st.number_input("Angle (°)", value=def_ang_other, key=f"ov_gen_a_{phase}")
+                    a_gen = st.number_input("Angle (°)", value=def_ang_gen, key=f"ov_gen_a_{phase}")
                 with c3:
                     st.markdown("**UAT**")
                     i_uat = st.number_input("Primary Amps [A]", value=def_val_uat, key=f"ov_uat_i_{phase}")

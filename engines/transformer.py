@@ -116,3 +116,33 @@ class TransformerDifferentialRelay:
             "status": status_text,
             "winding_mags_pu": mags_pu,
         }
+
+
+# =====================================================================
+# UI-DEFAULT HELPERS
+#    Used only to compute "healthy through-load" default values for the
+#    Live Simulation tab's phase-input widgets - not part of the relay's
+#    own trip logic. Forward/inverse pair for the per-winding transform
+#    evaluate_protection() applies BEFORE the OPPOSITE/SAME polarity flip
+#    (CT ratio -> tap -> Delta sqrt(3)+angle compensation).
+# =====================================================================
+def winding_internal_vector(relay, idx, i_pri, angle_deg):
+    """Forward: raw (primary amps, angle) -> per-unit phasor for that winding,
+    before the OPPOSITE/SAME polarity flip is applied."""
+    w = relay.windings[idx]
+    i_sec = i_pri / w["effective_ratio"] if w["effective_ratio"] > 0 else 0.0
+    i_tap_pu = (i_sec * w["tap"] / w["ct_secondary_rating"]) * w["delta_factor"] if w["ct_secondary_rating"] > 0 else 0.0
+    return cmath.rect(i_tap_pu, math.radians(angle_deg + w["delta_angle_shift"]))
+
+
+def raw_input_for_internal_vector(relay, idx, target_internal_vec):
+    """Inverse of winding_internal_vector: given a target pre-polarity-flip phasor,
+    back-solve the raw (primary_amps, angle_deg) a user would type in the UI."""
+    w = relay.windings[idx]
+    mag = abs(target_internal_vec)
+    ang = math.degrees(cmath.phase(target_internal_vec)) if mag > 0 else 0.0
+    denom = (w["tap"] / (w["effective_ratio"] * w["ct_secondary_rating"])) * w["delta_factor"] \
+        if w["effective_ratio"] > 0 and w["ct_secondary_rating"] > 0 else 0.0
+    i_pri = mag / denom if denom > 0 else 0.0
+    angle_deg = ang - w["delta_angle_shift"]
+    return i_pri, angle_deg
