@@ -24,7 +24,7 @@ PRESETS = {
     "POMI EXCT 87ET7/87ET8 - 7875 kVA": {
         "mva": 7.875,
         "kv_hv": 23.0, "kv_lv": 0.9,
-        "ct_hv": 400, "ct_lv": 5000, "ct_sec": 5.0,
+        "ct_hv": 300, "ct_lv": 5000, "ct_sec": 5.0,
         "tap_hv": 0.7, "tap_lv": 0.6,
         "bias": 20, "min_operate": 20, "hoc": 5,
     }
@@ -39,7 +39,7 @@ mva = st.sidebar.number_input("Transformer Rating (MVA)", value=p_data["mva"], s
 
 st.sidebar.markdown("**HV Winding (23kV side)**")
 kv_hv = st.sidebar.number_input("HV Rated Voltage (kV)", value=p_data["kv_hv"], step=1.0)
-ct_hv = st.sidebar.number_input("HV CT Ratio (Primary A, e.g. 400 in '400:5')", value=p_data["ct_hv"])
+ct_hv = st.sidebar.number_input("HV CT Ratio (Primary A, e.g. 300 in '300:5')", value=p_data["ct_hv"])
 
 st.sidebar.markdown("**LV Winding (900V side)**")
 kv_lv = st.sidebar.number_input("LV Rated Voltage (kV)", value=p_data["kv_lv"], step=0.1, format="%.3f")
