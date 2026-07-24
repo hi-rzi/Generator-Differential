@@ -7,7 +7,7 @@ import streamlit as st
 
 from common.pdf_report import generate_transformer_pdf_report
 from common.sld import overall_zone_svg, render_zone_diagram
-from common.ui_helpers import slider_with_exact_input
+from common.ui_helpers import slider_with_exact_input, MR_CT_TAPS_2000_5
 from engines.transformer import TransformerDifferentialRelay
 
 st.title("🔌 Overall GSUT-GEN Differential Protection")
@@ -39,10 +39,15 @@ p_data = PRESETS[selected_preset]
 
 st.sidebar.header("1. Winding & CT Spec")
 
-st.sidebar.markdown("**Winding 1 — HV (525kV side, Delta CT)**")
+st.sidebar.markdown("**Winding 1 — HV (525kV side, Multi-Ratio Delta CT)**")
 kv_hv = st.sidebar.number_input("HV Rated Voltage (kV)", value=p_data["kv_hv"], step=1.0, format="%.3f",
     help="Uses the center-of-tap-range voltage (538.125kV) per the settings doc's full-load calc, not the 525kV nameplate.")
-ct_hv = st.sidebar.number_input("HV CT Ratio (Primary A, e.g. 1600 in '1600:5')", value=p_data["ct_hv"])
+ct_hv = st.sidebar.select_slider(
+    "HV CT Ratio Tap (Multi-Ratio, Primary A)", options=MR_CT_TAPS_2000_5,
+    value=p_data["ct_hv"] if p_data["ct_hv"] in MR_CT_TAPS_2000_5 else 1600,
+    help="Same 2000:5 Delta-connected multi-ratio bushing CT as the GSUT page (it's the same "
+         "physical CT feeding both relays) — documented as set on 1600:5."
+)
 ct_conn_hv = st.sidebar.selectbox("HV CT Connection", ["DELTA", "WYE"], index=0 if p_data["ct_conn_hv"] == "DELTA" else 1, key="ov_ct_conn_hv")
 
 st.sidebar.markdown("**Winding 2 — Generator (23kV side, Wye CT)**")
@@ -124,8 +129,9 @@ windings = [
     {"name": "UAT (23kV)", "kv": kv_uat, "ct_ratio": ct_uat, "ct_secondary_rating": ct_secondary_rating, "tap": tap_uat, "ct_connection": ct_conn_uat},
 ]
 st.sidebar.caption(
-    "⚠️ CT connection type is recorded here but not yet applied by the engine — "
-    "the √3 Delta compensation fix in engines/transformer.py is still pending."
+    "ℹ️ Delta-connected CTs get an automatic √3 magnitude step-up and a +30° phase "
+    "shift (see engines/transformer.py) — the standard compensation for a Wye/Delta "
+    "power transformer so healthy through-load doesn't read as a fault."
 )
 
 relay = TransformerDifferentialRelay(

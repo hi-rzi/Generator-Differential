@@ -31,6 +31,19 @@ import math
 #    case, so — consistent with the existing IEEE/IEC toggle on the
 #    Generator engine — it is exposed as a selectable convention rather
 #    than silently assumed.
+#
+#    Delta/Wye CT compensation: whenever a winding's CT is connected in
+#    DELTA (the standard way to compensate for the power transformer's own
+#    Wye/Delta vector group so healthy through-load doesn't look like a
+#    fault), the settings doc's own worked examples (GSUT and UAT
+#    Calculation/Discussion sections) show the relay current is the CT
+#    secondary current times sqrt(3) - e.g. GSUT: I_RH = I_SH x sqrt(3).
+#    That magnitude step is applied automatically below based on each
+#    winding's "ct_connection". The accompanying 30-degree phase shift is
+#    also applied (defaulted to +30 deg, since the source documents only
+#    verify magnitude balance, not a phase reference) - override via
+#    "delta_angle_shift": -30.0 on a winding if commissioning results show
+#    the sign is backwards for that CT's actual field wiring.
 # =====================================================================
 class TransformerDifferentialRelay:
     def __init__(self, mva_rated, windings, bias_pct, min_operate_pct, hoc_multiple,
@@ -52,6 +65,9 @@ class TransformerDifferentialRelay:
             w["effective_ratio"] = (w["ct_ratio"] / w["ct_secondary_rating"]) if w["ct_secondary_rating"] > 0 else w["ct_ratio"]
             w["i_rated_pri"] = (mva_rated * 1000.0) / (math.sqrt(3) * w["kv"]) if w["kv"] > 0 else 1.0
             w["i_rated_sec"] = w["i_rated_pri"] / w["effective_ratio"] if w["effective_ratio"] > 0 else w["i_rated_pri"]
+            is_delta = w.get("ct_connection", "WYE").upper() == "DELTA"
+            w["delta_factor"] = math.sqrt(3) if is_delta else 1.0
+            w["delta_angle_shift"] = w.get("delta_angle_shift", 30.0) if is_delta else 0.0
 
     def calculate_trip_threshold(self, i_rest_pu):
         return max(self.min_operate_pu, self.bias * i_rest_pu)
@@ -63,7 +79,9 @@ class TransformerDifferentialRelay:
         for idx, (w, (i_pri, angle_deg)) in enumerate(zip(self.windings, winding_inputs)):
             i_sec = i_pri / w["effective_ratio"] if w["effective_ratio"] > 0 else 0.0
             i_tap_pu = (i_sec * w["tap"]) / w["ct_secondary_rating"] if w["ct_secondary_rating"] > 0 else 0.0
-            vec = cmath.rect(i_tap_pu, math.radians(angle_deg))
+            i_tap_pu *= w["delta_factor"]
+            effective_angle = angle_deg + w["delta_angle_shift"]
+            vec = cmath.rect(i_tap_pu, math.radians(effective_angle))
             if idx > 0 and self.ct_polarity == "OPPOSITE":
                 vec = -vec
             vecs_pu.append(vec)

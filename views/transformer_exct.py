@@ -7,7 +7,7 @@ import streamlit as st
 
 from common.pdf_report import generate_transformer_pdf_report
 from common.sld import two_winding_transformer_zone_svg, render_zone_diagram
-from common.ui_helpers import slider_with_exact_input
+from common.ui_helpers import slider_with_exact_input, MR_CT_TAPS_600_5
 from engines.transformer import TransformerDifferentialRelay
 
 st.title("🔌 Excitation Transformer (EXCT) Differential Protection")
@@ -24,7 +24,8 @@ PRESETS = {
     "POMI EXCT 87ET7/87ET8 - 7875 kVA": {
         "mva": 7.875,
         "kv_hv": 23.0, "kv_lv": 0.9,
-        "ct_hv": 400, "ct_lv": 5000, "ct_sec": 5.0,
+        "ct_hv": 600, "ct_lv": 5000, "ct_sec": 5.0,
+        "ct_conn_hv": "DELTA",
         "tap_hv": 0.7, "tap_lv": 0.6,
         "bias": 20, "min_operate": 20, "hoc": 5,
     }
@@ -37,9 +38,18 @@ p_data = PRESETS[selected_preset]
 st.sidebar.header("1. Transformer & CT Spec")
 mva = st.sidebar.number_input("Transformer Rating (MVA)", value=p_data["mva"], step=0.1, format="%.3f")
 
-st.sidebar.markdown("**HV Winding (23kV side)**")
+st.sidebar.markdown("**HV Winding (23kV side) — Multi-Ratio CT**")
 kv_hv = st.sidebar.number_input("HV Rated Voltage (kV)", value=p_data["kv_hv"], step=1.0)
-ct_hv = st.sidebar.number_input("HV CT Ratio (Primary A, e.g. 400 in '400:5')", value=p_data["ct_hv"])
+ct_hv = st.sidebar.select_slider(
+    "HV CT Ratio Tap (Multi-Ratio, Primary A)", options=MR_CT_TAPS_600_5,
+    value=p_data["ct_hv"] if p_data["ct_hv"] in MR_CT_TAPS_600_5 else 600,
+    help="600:5 Delta-connected multi-ratio bushing CT — the tap can be reselected in the "
+         "field based on the actual/expected load current. Defaults to the maximum tap (600:5)."
+)
+ct_conn_hv = st.sidebar.selectbox(
+    "HV CT Connection", ["DELTA", "WYE"],
+    index=0 if p_data.get("ct_conn_hv", "DELTA") == "DELTA" else 1
+)
 
 st.sidebar.markdown("**LV Winding (900V side)**")
 kv_lv = st.sidebar.number_input("LV Rated Voltage (kV)", value=p_data["kv_lv"], step=0.1, format="%.3f")
@@ -101,9 +111,14 @@ with col_pol:
     )
 
 windings = [
-    {"name": "HV (23kV)", "kv": kv_hv, "ct_ratio": ct_hv, "ct_secondary_rating": ct_secondary_rating, "tap": tap_hv},
-    {"name": "LV (900V)", "kv": kv_lv, "ct_ratio": ct_lv, "ct_secondary_rating": ct_secondary_rating, "tap": tap_lv},
+    {"name": "HV (23kV)", "kv": kv_hv, "ct_ratio": ct_hv, "ct_secondary_rating": ct_secondary_rating, "tap": tap_hv, "ct_connection": ct_conn_hv},
+    {"name": "LV (900V)", "kv": kv_lv, "ct_ratio": ct_lv, "ct_secondary_rating": ct_secondary_rating, "tap": tap_lv, "ct_connection": "WYE"},
 ]
+st.sidebar.caption(
+    "ℹ️ Delta-connected CTs get an automatic √3 magnitude step-up and a +30° phase "
+    "shift (see engines/transformer.py) — the standard compensation for a Wye/Delta "
+    "power transformer so healthy through-load doesn't read as a fault."
+)
 
 relay = TransformerDifferentialRelay(
     mva_rated=mva, windings=windings,
