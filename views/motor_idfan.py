@@ -114,31 +114,12 @@ ensure_setting("motor_selected_preset", next(iter(PRESETS)))
 selected_preset = st.sidebar.selectbox("Load Standard Profile", list(PRESETS.keys()), key="motor_selected_preset")
 p_data = PRESETS[selected_preset]
 
-st.sidebar.header("1. Motor Data")
-ensure_setting("motor_fla", float(p_data["motor_fla"]))
-ensure_setting("motor_lrc_100", float(p_data["locked_rotor_amps"]))
-ensure_setting("motor_lrc_80", float(p_data["locked_rotor_amps_80pct"]))
-ensure_setting("motor_accel_time_100", p_data["accel_time_100"])
-ensure_setting("motor_accel_time_80", p_data["accel_time_80"])
-ensure_setting("motor_safe_stall_100", p_data["safe_stall_100_hot"])
-ensure_setting("motor_safe_stall_80", p_data["safe_stall_80_hot"])
-motor_fla = st.sidebar.number_input("Full Load Current (A)", min_value=1.0, step=1.0, key="motor_fla")
-locked_rotor_amps = st.sidebar.number_input("Locked Rotor Current @ 100% V (A)", min_value=1.0, step=1.0, key="motor_lrc_100")
-locked_rotor_amps_80 = st.sidebar.number_input("Locked Rotor Current @ 80% V (A)", min_value=1.0, step=1.0, key="motor_lrc_80")
-accel_time_100 = st.sidebar.number_input("Acceleration Time @ 100% V (s)", min_value=0.1, step=0.1, key="motor_accel_time_100")
-accel_time_80 = st.sidebar.number_input("Acceleration Time @ 80% V (s)", min_value=0.1, step=0.1, key="motor_accel_time_80")
-safe_stall_100 = st.sidebar.number_input("Safe Stall Time @ 100% V, hot (s)", min_value=0.1, step=0.1, key="motor_safe_stall_100",
-    help="Using the 'after one start attempt' (hot) value — the more conservative of the two documented safe stall times.")
-safe_stall_80 = st.sidebar.number_input("Safe Stall Time @ 80% V, hot (s)", min_value=0.1, step=0.1, key="motor_safe_stall_80")
+st.sidebar.header("🎯 Protection Characteristic")
 
-st.sidebar.header("2. CT Spec")
 ensure_setting("motor_ct_ratio", float(p_data["ct_ratio"]))
 ensure_setting("motor_ct_sec", p_data["ct_sec"])
-ct_ratio = st.sidebar.number_input("50/50/51 CT Ratio (Primary A, e.g. 600 in '600:5')", min_value=1.0, key="motor_ct_ratio")
-ct_secondary_rating = st.sidebar.selectbox("CT Secondary Rating (A)", [1.0, 5.0], key="motor_ct_sec")
-st.sidebar.caption(f"Effective ratio → **{ct_ratio/ct_secondary_rating:.1f}:1**")
 
-st.sidebar.header("3. 51 (Long Time Inverse)")
+st.sidebar.markdown("**51 (Long Time Inverse)**")
 tap_51_options = [2.5, 2.8, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.5]
 ensure_setting("motor_tap_51", p_data["tap_51"])
 tap_51 = st.sidebar.select_slider(
@@ -153,7 +134,7 @@ time_dial = slider_with_exact_input(
                "settings doc's reference point of ~16s at 500% pickup."
 )
 
-st.sidebar.header("4. 50A / 50B (Instantaneous)")
+st.sidebar.markdown("**50A / 50B (Instantaneous)**")
 pickup_50a = slider_with_exact_input(
     st.sidebar, "50A Pickup (A sec.)", 6.0, 150.0, p_data["pickup_50a"], 1.0,
     key="motor_pickup_50a",
@@ -169,13 +150,36 @@ dropout_50b = slider_with_exact_input(
 ensure_setting("motor_target_seal_in", p_data["target_seal_in"])
 target_seal_in = st.sidebar.number_input("Target & Seal-in (A)", min_value=0.2, max_value=2.0, step=0.1, key="motor_target_seal_in")
 
-st.sidebar.header("5. Backup Instantaneous (50)")
+st.sidebar.markdown("**Backup Instantaneous (50)**")
 ensure_setting("motor_enable_backup", True)
 ensure_setting("motor_backup_ct_ratio", float(p_data["backup_ct_ratio"]))
 ensure_setting("motor_backup_pickup_50", p_data["backup_pickup_50"])
 enable_backup = st.sidebar.checkbox("Enable HFC22B2A backup relay", key="motor_enable_backup")
 backup_ct_ratio = st.sidebar.number_input("Backup CT Ratio (Primary A, e.g. 3000 in '3000:5')", min_value=1.0, key="motor_backup_ct_ratio", disabled=not enable_backup)
 backup_pickup_50 = st.sidebar.number_input("Backup 50 Pickup (A sec.)", min_value=2.0, max_value=50.0, step=0.5, key="motor_backup_pickup_50", disabled=not enable_backup)
+
+with st.sidebar.expander("🔧 Advanced Settings (Motor Data & CT Spec)", expanded=False):
+    st.markdown("**Motor Data**")
+    ensure_setting("motor_fla", float(p_data["motor_fla"]))
+    ensure_setting("motor_lrc_100", float(p_data["locked_rotor_amps"]))
+    ensure_setting("motor_lrc_80", float(p_data["locked_rotor_amps_80pct"]))
+    ensure_setting("motor_accel_time_100", p_data["accel_time_100"])
+    ensure_setting("motor_accel_time_80", p_data["accel_time_80"])
+    ensure_setting("motor_safe_stall_100", p_data["safe_stall_100_hot"])
+    ensure_setting("motor_safe_stall_80", p_data["safe_stall_80_hot"])
+    motor_fla = st.number_input("Full Load Current (A)", min_value=1.0, step=1.0, key="motor_fla")
+    locked_rotor_amps = st.number_input("Locked Rotor Current @ 100% V (A)", min_value=1.0, step=1.0, key="motor_lrc_100")
+    locked_rotor_amps_80 = st.number_input("Locked Rotor Current @ 80% V (A)", min_value=1.0, step=1.0, key="motor_lrc_80")
+    accel_time_100 = st.number_input("Acceleration Time @ 100% V (s)", min_value=0.1, step=0.1, key="motor_accel_time_100")
+    accel_time_80 = st.number_input("Acceleration Time @ 80% V (s)", min_value=0.1, step=0.1, key="motor_accel_time_80")
+    safe_stall_100 = st.number_input("Safe Stall Time @ 100% V, hot (s)", min_value=0.1, step=0.1, key="motor_safe_stall_100",
+        help="Using the 'after one start attempt' (hot) value — the more conservative of the two documented safe stall times.")
+    safe_stall_80 = st.number_input("Safe Stall Time @ 80% V, hot (s)", min_value=0.1, step=0.1, key="motor_safe_stall_80")
+
+    st.markdown("**CT Spec**")
+    ct_ratio = st.number_input("50/50/51 CT Ratio (Primary A, e.g. 600 in '600:5')", min_value=1.0, key="motor_ct_ratio")
+    ct_secondary_rating = st.selectbox("CT Secondary Rating (A)", [1.0, 5.0], key="motor_ct_sec")
+    st.caption(f"Effective ratio → **{ct_ratio/ct_secondary_rating:.1f}:1**")
 
 relay = MotorTimeOvercurrentRelay(
     ct_ratio=ct_ratio, ct_secondary_rating=ct_secondary_rating,

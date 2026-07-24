@@ -37,63 +37,7 @@ st.sidebar.header("📋 Equipment Presets")
 selected_preset = st.sidebar.selectbox("Load Standard Profile", list(PRESETS.keys()))
 p_data = PRESETS[selected_preset]
 
-st.sidebar.header("1. Winding & CT Spec")
-
-st.sidebar.markdown("**Winding 1 — HV (525kV side, Multi-Ratio Delta CT)**")
-kv_hv = st.sidebar.number_input("HV Rated Voltage (kV)", value=p_data["kv_hv"], step=1.0, format="%.3f",
-    help="Uses the center-of-tap-range voltage (538.125kV) per the settings doc's full-load calc, not the 525kV nameplate.")
-ct_hv = st.sidebar.select_slider(
-    "HV CT Ratio Tap (Multi-Ratio, Primary A)", options=MR_CT_TAPS_2000_5,
-    value=p_data["ct_hv"] if p_data["ct_hv"] in MR_CT_TAPS_2000_5 else 1600,
-    help="Same 2000:5 Delta-connected multi-ratio bushing CT as the GSUT page (it's the same "
-         "physical CT feeding both relays) — documented as set on 1600:5."
-)
-ct_conn_hv = st.sidebar.selectbox("HV CT Connection", ["DELTA", "WYE"], index=0 if p_data["ct_conn_hv"] == "DELTA" else 1, key="ov_ct_conn_hv")
-
-st.sidebar.markdown("**Winding 2 — Generator (23kV side, Wye CT)**")
-kv_gen = st.sidebar.number_input("Generator Rated Voltage (kV)", value=p_data["kv_gen"], step=0.1, format="%.3f")
-ct_gen = st.sidebar.number_input("Generator CT Ratio (Primary A, e.g. 24000 in '24000:5')", value=p_data["ct_gen"])
-ct_conn_gen = st.sidebar.selectbox("Generator CT Connection", ["WYE", "DELTA"], index=0 if p_data["ct_conn_gen"] == "WYE" else 1, key="ov_ct_conn_gen")
-
-st.sidebar.markdown("**Winding 3 — Unit Auxiliary Transformer (23kV side, Wye CT)**")
-kv_uat = st.sidebar.number_input("UAT Rated Voltage (kV)", value=p_data["kv_uat"], step=0.1, format="%.3f")
-ct_uat = st.sidebar.number_input("UAT CT Ratio (Primary A, e.g. 24000 in '24000:5')", value=p_data["ct_uat"])
-ct_conn_uat = st.sidebar.selectbox("UAT CT Connection", ["WYE", "DELTA"], index=0 if p_data["ct_conn_uat"] == "WYE" else 1, key="ov_ct_conn_uat")
-
-mva = st.sidebar.number_input(
-    "Base Rating (MVA)", value=p_data["mva"], step=10.0,
-    help="Relay currents are calculated assuming each device carries the full rating of the "
-         "Generator Step-Up Transformer (per the settings doc's Calculation/Discussion)."
-)
-
-ct_secondary_rating = st.sidebar.selectbox(
-    "CT Secondary Rating (A)", [1.0, 5.0], index=1, key="ov_ct_sec",
-    help="The rated secondary current stamped on the CT nameplate (the '5' in 'x:5'). Applied to all three CTs."
-)
-st.sidebar.caption(
-    f"Effective ratio → HV: **{ct_hv/ct_secondary_rating:.1f}:1**  |  "
-    f"Generator: **{ct_gen/ct_secondary_rating:.1f}:1**  |  "
-    f"UAT: **{ct_uat/ct_secondary_rating:.1f}:1**"
-)
-
-st.sidebar.header("2. CT Matching Taps")
-tap_hv = slider_with_exact_input(
-    st.sidebar, "HV Tap (T1)", 0.4, 2.18, p_data["tap_hv"], 0.02,
-    key=f"{selected_preset}__tap_hv",
-    help_text="CAC2-10-M3 setting range: 0.4-2.18 in steps of 0.02."
-)
-tap_gen = slider_with_exact_input(
-    st.sidebar, "Generator Tap (T2)", 0.4, 2.18, p_data["tap_gen"], 0.02,
-    key=f"{selected_preset}__tap_gen",
-    help_text="CAC2-10-M3 setting range: 0.4-2.18 in steps of 0.02."
-)
-tap_uat = slider_with_exact_input(
-    st.sidebar, "UAT Tap (T3)", 0.4, 2.18, p_data["tap_uat"], 0.02,
-    key=f"{selected_preset}__tap_uat",
-    help_text="CAC2-10-M3 setting range: 0.4-2.18 in steps of 0.02."
-)
-
-st.sidebar.header("3. Protection Characteristic")
+st.sidebar.header("🎯 Protection Characteristic")
 bias_pct = slider_with_exact_input(
     st.sidebar, "Bias, τ (%)", 20, 40, p_data["bias"], 10,
     key=f"{selected_preset}__bias",
@@ -112,16 +56,71 @@ hoc_multiple = st.sidebar.select_slider(
          "harmonically restrained — operates on differential current only, so LV-side faults won't trip it."
 )
 
-st.sidebar.header("4. Wiring & Convention")
-col_conv, col_pol = st.sidebar.columns(2)
-with col_conv:
-    convention = st.radio("Restraint Standard", ["IEEE", "IEC"], help="IEEE: Average current. IEC: Arithmetic sum.", key="ov_convention")
-with col_pol:
-    ct_polarity = st.radio(
-        "Polarity Reference", ["OPPOSITE", "SAME"], index=0, key="ov_ct_polarity",
-        help="OPPOSITE: HV (Winding 1) is the reference; Generator and UAT windings are flipped "
-             "relative to it, as current flows into the zone from HV and out to the other two."
+with st.sidebar.expander("🔧 Advanced Settings (CT Spec, Taps & Wiring)", expanded=False):
+    st.markdown("**Winding 1 — HV (525kV side, Multi-Ratio Delta CT)**")
+    kv_hv = st.number_input("HV Rated Voltage (kV)", value=p_data["kv_hv"], step=1.0, format="%.3f",
+        help="Uses the center-of-tap-range voltage (538.125kV) per the settings doc's full-load calc, not the 525kV nameplate.")
+    ct_hv = st.select_slider(
+        "HV CT Ratio Tap (Multi-Ratio, Primary A)", options=MR_CT_TAPS_2000_5,
+        value=p_data["ct_hv"] if p_data["ct_hv"] in MR_CT_TAPS_2000_5 else 1600,
+        help="Same 2000:5 Delta-connected multi-ratio bushing CT as the GSUT page (it's the same "
+             "physical CT feeding both relays) — documented as set on 1600:5."
     )
+    ct_conn_hv = st.selectbox("HV CT Connection", ["DELTA", "WYE"], index=0 if p_data["ct_conn_hv"] == "DELTA" else 1, key="ov_ct_conn_hv")
+
+    st.markdown("**Winding 2 — Generator (23kV side, Wye CT)**")
+    kv_gen = st.number_input("Generator Rated Voltage (kV)", value=p_data["kv_gen"], step=0.1, format="%.3f")
+    ct_gen = st.number_input("Generator CT Ratio (Primary A, e.g. 24000 in '24000:5')", value=p_data["ct_gen"])
+    ct_conn_gen = st.selectbox("Generator CT Connection", ["WYE", "DELTA"], index=0 if p_data["ct_conn_gen"] == "WYE" else 1, key="ov_ct_conn_gen")
+
+    st.markdown("**Winding 3 — Unit Auxiliary Transformer (23kV side, Wye CT)**")
+    kv_uat = st.number_input("UAT Rated Voltage (kV)", value=p_data["kv_uat"], step=0.1, format="%.3f")
+    ct_uat = st.number_input("UAT CT Ratio (Primary A, e.g. 24000 in '24000:5')", value=p_data["ct_uat"])
+    ct_conn_uat = st.selectbox("UAT CT Connection", ["WYE", "DELTA"], index=0 if p_data["ct_conn_uat"] == "WYE" else 1, key="ov_ct_conn_uat")
+
+    mva = st.number_input(
+        "Base Rating (MVA)", value=p_data["mva"], step=10.0,
+        help="Relay currents are calculated assuming each device carries the full rating of the "
+             "Generator Step-Up Transformer (per the settings doc's Calculation/Discussion)."
+    )
+
+    ct_secondary_rating = st.selectbox(
+        "CT Secondary Rating (A)", [1.0, 5.0], index=1, key="ov_ct_sec",
+        help="The rated secondary current stamped on the CT nameplate (the '5' in 'x:5'). Applied to all three CTs."
+    )
+    st.caption(
+        f"Effective ratio → HV: **{ct_hv/ct_secondary_rating:.1f}:1**  |  "
+        f"Generator: **{ct_gen/ct_secondary_rating:.1f}:1**  |  "
+        f"UAT: **{ct_uat/ct_secondary_rating:.1f}:1**"
+    )
+
+    st.markdown("**CT Matching Taps**")
+    tap_hv = slider_with_exact_input(
+        st, "HV Tap (T1)", 0.4, 2.18, p_data["tap_hv"], 0.02,
+        key=f"{selected_preset}__tap_hv",
+        help_text="CAC2-10-M3 setting range: 0.4-2.18 in steps of 0.02."
+    )
+    tap_gen = slider_with_exact_input(
+        st, "Generator Tap (T2)", 0.4, 2.18, p_data["tap_gen"], 0.02,
+        key=f"{selected_preset}__tap_gen",
+        help_text="CAC2-10-M3 setting range: 0.4-2.18 in steps of 0.02."
+    )
+    tap_uat = slider_with_exact_input(
+        st, "UAT Tap (T3)", 0.4, 2.18, p_data["tap_uat"], 0.02,
+        key=f"{selected_preset}__tap_uat",
+        help_text="CAC2-10-M3 setting range: 0.4-2.18 in steps of 0.02."
+    )
+
+    st.markdown("**Wiring & Convention**")
+    col_conv, col_pol = st.columns(2)
+    with col_conv:
+        convention = st.radio("Restraint Standard", ["IEEE", "IEC"], help="IEEE: Average current. IEC: Arithmetic sum.", key="ov_convention")
+    with col_pol:
+        ct_polarity = st.radio(
+            "Polarity Reference", ["OPPOSITE", "SAME"], index=0, key="ov_ct_polarity",
+            help="OPPOSITE: HV (Winding 1) is the reference; Generator and UAT windings are flipped "
+                 "relative to it, as current flows into the zone from HV and out to the other two."
+        )
 
 windings = [
     {"name": "HV (525kV)", "kv": kv_hv, "ct_ratio": ct_hv, "ct_secondary_rating": ct_secondary_rating, "tap": tap_hv, "ct_connection": ct_conn_hv},

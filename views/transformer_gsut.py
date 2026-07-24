@@ -35,51 +35,7 @@ st.sidebar.header("📋 Equipment Presets")
 selected_preset = st.sidebar.selectbox("Load Standard Profile", list(PRESETS.keys()))
 p_data = PRESETS[selected_preset]
 
-st.sidebar.header("1. Transformer & CT Spec")
-mva = st.sidebar.number_input("Transformer Rating (MVA)", value=p_data["mva"], step=0.1, format="%.3f")
-
-st.sidebar.markdown("**HV Winding (525kV side, Multi-Ratio Delta CT)**")
-kv_hv = st.sidebar.number_input("HV Rated Voltage (kV)", value=p_data["kv_hv"], step=1.0, format="%.3f",
-    help="Uses the center-of-tap-range voltage (538.125kV) per the settings doc's full-load calc, not the 525kV nameplate.")
-ct_hv = st.sidebar.select_slider(
-    "HV CT Ratio Tap (Multi-Ratio, Primary A)", options=MR_CT_TAPS_2000_5,
-    value=p_data["ct_hv"] if p_data["ct_hv"] in MR_CT_TAPS_2000_5 else 1600,
-    help="2000:5 Delta-connected multi-ratio bushing CT — the tap can be reselected in the "
-         "field based on the actual/expected load current. Documented as set on 1600:5."
-)
-ct_conn_hv = st.sidebar.selectbox("HV CT Connection", ["DELTA", "WYE"], index=0 if p_data["ct_conn_hv"] == "DELTA" else 1)
-
-st.sidebar.markdown("**LV Winding (23kV side, Wye CT)**")
-kv_lv = st.sidebar.number_input("LV Rated Voltage (kV)", value=p_data["kv_lv"], step=0.1, format="%.3f")
-ct_lv = st.sidebar.number_input("LV CT Ratio (Primary A, e.g. 24000 in '24000:5')", value=p_data["ct_lv"])
-ct_conn_lv = st.sidebar.selectbox("LV CT Connection", ["WYE", "DELTA"], index=0 if p_data["ct_conn_lv"] == "WYE" else 1)
-
-ct_secondary_rating = st.sidebar.selectbox(
-    "CT Secondary Rating (A)", [1.0, 5.0], index=1,
-    help="The rated secondary current stamped on the CT nameplate (the '5' in '400:5'). "
-         "Applied to both CTs to determine the true turns ratio used in all per-unit scaling."
-)
-st.sidebar.caption(
-    f"Effective ratio → HV: **{ct_hv:.0f}:{ct_secondary_rating:.0f}** "
-    f"(= {ct_hv/ct_secondary_rating:.1f}:1)  |  "
-    f"LV: **{ct_lv:.0f}:{ct_secondary_rating:.0f}** "
-    f"(= {ct_lv/ct_secondary_rating:.1f}:1)"
-)
-
-st.sidebar.header("2. CT Matching Taps")
-tap_hv = slider_with_exact_input(
-    st.sidebar, "HV Tap (T1)", 0.4, 2.18, p_data["tap_hv"], 0.01,
-    key=f"{selected_preset}__tap_hv",
-    help_text="CAC1-10-M3 setting range: 0.4-2.18. Selected so the tap-corrected current at "
-               "rated load is close to the relay's rated tap current (I_N = 5A)."
-)
-tap_lv = slider_with_exact_input(
-    st.sidebar, "LV Tap (T2)", 0.4, 2.18, p_data["tap_lv"], 0.01,
-    key=f"{selected_preset}__tap_lv",
-    help_text="CAC1-10-M3 setting range: 0.4-2.18."
-)
-
-st.sidebar.header("3. Protection Characteristic")
+st.sidebar.header("🎯 Protection Characteristic")
 bias_pct = slider_with_exact_input(
     st.sidebar, "Bias, τ (%)", 5, 60, p_data["bias"], 1,
     key=f"{selected_preset}__bias",
@@ -98,16 +54,61 @@ hoc_multiple = slider_with_exact_input(
                "transformer inrush current (see Calculation/Discussion)."
 )
 
-st.sidebar.header("4. Wiring & Convention")
-col_conv, col_pol = st.sidebar.columns(2)
-with col_conv:
-    convention = st.radio("Restraint Standard", ["IEEE", "IEC"], help="IEEE: Average current. IEC: Arithmetic sum.")
-with col_pol:
-    ct_polarity = st.radio(
-        "Polarity Reference", ["OPPOSITE", "SAME"], index=0,
-        help="OPPOSITE is standard for a 2-winding transformer differential (currents flow "
-             "into the zone on one side, out on the other)."
+with st.sidebar.expander("🔧 Advanced Settings (CT Spec, Taps & Wiring)", expanded=False):
+    st.markdown("**Transformer & CT Spec**")
+    mva = st.number_input("Transformer Rating (MVA)", value=p_data["mva"], step=0.1, format="%.3f")
+
+    st.markdown("**HV Winding (525kV side, Multi-Ratio Delta CT)**")
+    kv_hv = st.number_input("HV Rated Voltage (kV)", value=p_data["kv_hv"], step=1.0, format="%.3f",
+        help="Uses the center-of-tap-range voltage (538.125kV) per the settings doc's full-load calc, not the 525kV nameplate.")
+    ct_hv = st.select_slider(
+        "HV CT Ratio Tap (Multi-Ratio, Primary A)", options=MR_CT_TAPS_2000_5,
+        value=p_data["ct_hv"] if p_data["ct_hv"] in MR_CT_TAPS_2000_5 else 1600,
+        help="2000:5 Delta-connected multi-ratio bushing CT — the tap can be reselected in the "
+             "field based on the actual/expected load current. Documented as set on 1600:5."
     )
+    ct_conn_hv = st.selectbox("HV CT Connection", ["DELTA", "WYE"], index=0 if p_data["ct_conn_hv"] == "DELTA" else 1)
+
+    st.markdown("**LV Winding (23kV side, Wye CT)**")
+    kv_lv = st.number_input("LV Rated Voltage (kV)", value=p_data["kv_lv"], step=0.1, format="%.3f")
+    ct_lv = st.number_input("LV CT Ratio (Primary A, e.g. 24000 in '24000:5')", value=p_data["ct_lv"])
+    ct_conn_lv = st.selectbox("LV CT Connection", ["WYE", "DELTA"], index=0 if p_data["ct_conn_lv"] == "WYE" else 1)
+
+    ct_secondary_rating = st.selectbox(
+        "CT Secondary Rating (A)", [1.0, 5.0], index=1,
+        help="The rated secondary current stamped on the CT nameplate (the '5' in '400:5'). "
+             "Applied to both CTs to determine the true turns ratio used in all per-unit scaling."
+    )
+    st.caption(
+        f"Effective ratio → HV: **{ct_hv:.0f}:{ct_secondary_rating:.0f}** "
+        f"(= {ct_hv/ct_secondary_rating:.1f}:1)  |  "
+        f"LV: **{ct_lv:.0f}:{ct_secondary_rating:.0f}** "
+        f"(= {ct_lv/ct_secondary_rating:.1f}:1)"
+    )
+
+    st.markdown("**CT Matching Taps**")
+    tap_hv = slider_with_exact_input(
+        st, "HV Tap (T1)", 0.4, 2.18, p_data["tap_hv"], 0.01,
+        key=f"{selected_preset}__tap_hv",
+        help_text="CAC1-10-M3 setting range: 0.4-2.18. Selected so the tap-corrected current at "
+                   "rated load is close to the relay's rated tap current (I_N = 5A)."
+    )
+    tap_lv = slider_with_exact_input(
+        st, "LV Tap (T2)", 0.4, 2.18, p_data["tap_lv"], 0.01,
+        key=f"{selected_preset}__tap_lv",
+        help_text="CAC1-10-M3 setting range: 0.4-2.18."
+    )
+
+    st.markdown("**Wiring & Convention**")
+    col_conv, col_pol = st.columns(2)
+    with col_conv:
+        convention = st.radio("Restraint Standard", ["IEEE", "IEC"], help="IEEE: Average current. IEC: Arithmetic sum.")
+    with col_pol:
+        ct_polarity = st.radio(
+            "Polarity Reference", ["OPPOSITE", "SAME"], index=0,
+            help="OPPOSITE is standard for a 2-winding transformer differential (currents flow "
+                 "into the zone on one side, out on the other)."
+        )
 
 windings = [
     {"name": "HV (525kV)", "kv": kv_hv, "ct_ratio": ct_hv, "ct_secondary_rating": ct_secondary_rating, "tap": tap_hv, "ct_connection": ct_conn_hv},

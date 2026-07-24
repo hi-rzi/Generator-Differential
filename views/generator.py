@@ -40,27 +40,7 @@ st.sidebar.header("📋 Equipment Presets")
 selected_preset = st.sidebar.selectbox("Load Standard Profile", list(current_mode_presets.keys()))
 p_data = current_mode_presets[selected_preset]
 
-
-st.sidebar.header("1. Generator & CT Spec")
-mva = st.sidebar.number_input("Generator Rating (MVA)", value=p_data["mva"], step=10.0)
-kv = st.sidebar.number_input("Rated Voltage (kV)", value=p_data["kv"], step=1.0)
-ct_ratio_N = st.sidebar.number_input("Neutral Side CT Rating (Primary A, e.g. 20000 in '20000:5')", value=p_data["ct_n"])
-ct_ratio_T = st.sidebar.number_input("Terminal Side CT Rating (Primary A)", value=p_data["ct_t"])
-
-ct_secondary_rating = st.sidebar.selectbox(
-    "CT Secondary Rating (A)", [1.0, 5.0], index=1,
-    help="The rated secondary current stamped on the CT nameplate (e.g. the '5' in '2000:5'). "
-         "This is applied to both CTs and determines the true turns ratio used in all "
-         "per-unit scaling — entering only the primary rating without this was a labelling bug."
-)
-st.sidebar.caption(
-    f"Effective ratio → Neutral: **{ct_ratio_N:.0f} : {ct_secondary_rating:.0f}** "
-    f"(= {ct_ratio_N/ct_secondary_rating:.1f}:1)  |  "
-    f"Terminal: **{ct_ratio_T:.0f} : {ct_secondary_rating:.0f}** "
-    f"(= {ct_ratio_T/ct_secondary_rating:.1f}:1)"
-)
-
-st.sidebar.header("2. Protection Characteristic")
+st.sidebar.header("🎯 Protection Characteristic")
 target_amps = None
 i_unrestrained_value = None
 
@@ -124,29 +104,48 @@ else:
             key=f"{current_mode}__{selected_preset}__unrestrained"
         )
 
-st.sidebar.header("3. Wiring & Convention")
+with st.sidebar.expander("🔧 Advanced Settings (CT Spec & Wiring)", expanded=False):
+    st.markdown("**Generator & CT Spec**")
+    mva = st.number_input("Generator Rating (MVA)", value=p_data["mva"], step=10.0)
+    kv = st.number_input("Rated Voltage (kV)", value=p_data["kv"], step=1.0)
+    ct_ratio_N = st.number_input("Neutral Side CT Rating (Primary A, e.g. 20000 in '20000:5')", value=p_data["ct_n"])
+    ct_ratio_T = st.number_input("Terminal Side CT Rating (Primary A)", value=p_data["ct_t"])
 
-col_conv, col_pol = st.sidebar.columns(2)
-with col_conv:
-    convention = st.radio("Restraint Standard", ["IEEE", "IEC"], help="IEEE: Average current. IEC: Arithmetic sum.")
-with col_pol:
-    def _on_polarity_change():
-        # Keep each phase's Terminal Side angle box in sync with the newly selected
-        # polarity, instead of leaving it at whatever value was set under the
-        # previously selected polarity — otherwise switching this radio silently
-        # pairs stale angle values with a different vec_op formula (+ vs -), which
-        # looks like the SAME/OPPOSITE results have "swapped".
-        new_polarity = st.session_state["ct_polarity_widget"]
-        for _idx, _phase in enumerate(["Phase A", "Phase B", "Phase C"]):
-            _def_ang_N = -120.0 * _idx
-            _def_ang_T = _def_ang_N + 180.0 if new_polarity == "OPPOSITE" else _def_ang_N
-            st.session_state[f"T_a_{_phase}"] = _def_ang_T
-
-    ct_polarity = st.radio(
-        "Polarity Reference", ["OPPOSITE", "SAME"], index=1,
-        key="ct_polarity_widget", on_change=_on_polarity_change,
-        help="OPPOSITE: standard facing inwards. SAME: facing identical directions."
+    ct_secondary_rating = st.selectbox(
+        "CT Secondary Rating (A)", [1.0, 5.0], index=1,
+        help="The rated secondary current stamped on the CT nameplate (e.g. the '5' in '2000:5'). "
+             "This is applied to both CTs and determines the true turns ratio used in all "
+             "per-unit scaling — entering only the primary rating without this was a labelling bug."
     )
+    st.caption(
+        f"Effective ratio → Neutral: **{ct_ratio_N:.0f} : {ct_secondary_rating:.0f}** "
+        f"(= {ct_ratio_N/ct_secondary_rating:.1f}:1)  |  "
+        f"Terminal: **{ct_ratio_T:.0f} : {ct_secondary_rating:.0f}** "
+        f"(= {ct_ratio_T/ct_secondary_rating:.1f}:1)"
+    )
+
+    st.markdown("**Wiring & Convention**")
+    col_conv, col_pol = st.columns(2)
+    with col_conv:
+        convention = st.radio("Restraint Standard", ["IEEE", "IEC"], help="IEEE: Average current. IEC: Arithmetic sum.")
+    with col_pol:
+        def _on_polarity_change():
+            # Keep each phase's Terminal Side angle box in sync with the newly selected
+            # polarity, instead of leaving it at whatever value was set under the
+            # previously selected polarity — otherwise switching this radio silently
+            # pairs stale angle values with a different vec_op formula (+ vs -), which
+            # looks like the SAME/OPPOSITE results have "swapped".
+            new_polarity = st.session_state["ct_polarity_widget"]
+            for _idx, _phase in enumerate(["Phase A", "Phase B", "Phase C"]):
+                _def_ang_N = -120.0 * _idx
+                _def_ang_T = _def_ang_N + 180.0 if new_polarity == "OPPOSITE" else _def_ang_N
+                st.session_state[f"T_a_{_phase}"] = _def_ang_T
+
+        ct_polarity = st.radio(
+            "Polarity Reference", ["OPPOSITE", "SAME"], index=1,
+            key="ct_polarity_widget", on_change=_on_polarity_change,
+            help="OPPOSITE: standard facing inwards. SAME: facing identical directions."
+        )
 
 relay = AdvancedDifferentialRelay(
     mode=current_mode, mva_rated=mva, kv_rated=kv,
